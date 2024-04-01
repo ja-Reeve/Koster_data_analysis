@@ -28,14 +28,14 @@ module load bcftools/1.14
 KTDIR=/proj/snic2020-6-155
 
 # Index VCF
-bcftools sort -Ob $KTDIR/vcf/KT_${SLURM_ARRAY_TASK_ID}.vcf.gz | \
-bcftools index -o $KTDIR/vcf/KT_${SLURM_ARRAY_TASK_ID}.csi
+bcftools sort -Ob $KTDIR/vcf/KT_LG${SLURM_ARRAY_TASK_ID}.vcf.gz | \
+bcftools index -o $KTDIR/vcf/KT_LG${SLURM_ARRAY_TASK_ID}.csi
 
 # Filter vcf files
-vcftools --gzvcf $KTDIR/vcf/KT_${SLURM_ARRAY_TASK_ID}.vcf.gz \
+vcftools --gzvcf $KTDIR/vcf/KT_LG${SLURM_ARRAY_TASK_ID}.vcf.gz \
         --min-alleles 2 --max-alleles 2 --minGQ 20 \
         --min-meanDP 5.0 --max-meanDP 20.0 --minQ 20 \
         --max-missing 0.2 --remove-indels \
         --mac 2 --maf 0.03 --remove-filtered-all \
-        --recode -c > $KTDIR/vcf/KT_${SLURM_ARRAY_TASK_ID}_filtered_MAF0.03.vcf
+        --recode -c > $KTDIR/vcf/KT_LG${SLURM_ARRAY_TASK_ID}_filtered_MAF003.vcf
 
