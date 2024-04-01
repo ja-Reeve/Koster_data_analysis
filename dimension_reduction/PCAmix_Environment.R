@@ -876,19 +876,44 @@ p3e <- PCA.load(MSS_PCA, 5, highlight.colour = "#EB817A")+theme(axis.text.y = el
 ggarrange(p3a, p3b, p3c, p3d, p3e, nrow = 1, widths = c(1.5,1,1,1,1))
 
 
-### F: Evaluate number of dimensions to save using PCAtest ####
+### F: Evaluate number of dimensions to save using broken stick model ####
 
-### Note: this package calculates statistics to evaluate observed PCA
-### against a null distribution of permutations. I am not focusing on the 
-### overall "significance" of the PCA, instead I am using this to look at
-### which dimensions explain more variation than expect by chance.
+## Function to add broken stick model to scree plot
+broken.stick.plot <- function(data, title = ""){
+  Exp <- sapply(1:nrow(data), function(i){ sum(1/i:nrow(data))/nrow(data) * 100})
+  
+  ggplot(data, aes(x = as.integer(gsub(".* ", "", X))))+
+    geom_point(aes(y = Proportion), col = "black")+
+    geom_line(aes(y = Proportion, group = 1), col = "black")+
+    geom_point(aes(y = Exp), col = "grey80")+
+    geom_line(aes(y = Exp, group = 1), col = "grey80")+
+    labs(x = "Principal component", y = "Variance explained (%)",
+         title = title)+
+    theme_bw()
+}
 
-## Rocky shores
-PCAtest(RS_PCA$Z)
+broken.stick.plot(RS_PCA$eig, "Rocky shores")
+broken.stick.plot(BS_PCA$eig, "Boulder fields")
+broken.stick.plot(MSS_PCA$eig, "Muddy-sandy shores")
 
 
-#### Currently not working!!! I think this is a scalling problem with the 
-### package. I've made an error request on the GitHub.
+## Inspect hard cuts
+Hard.cut <- function(data, cut){
+  head(data[data$Cumulative > cut,], n = 1)$X
+}
+
+Hard.cut(RS_PCA$eig, 75)
+Hard.cut(RS_PCA$eig, 80)
+Hard.cut(RS_PCA$eig, 90)
+
+Hard.cut(BS_PCA$eig, 75)
+Hard.cut(BS_PCA$eig, 80)
+Hard.cut(BS_PCA$eig, 90)
+
+Hard.cut(MSS_PCA$eig, 75)
+Hard.cut(MSS_PCA$eig, 80)
+Hard.cut(MSS_PCA$eig, 90)
+
 
 
 #### G: Save PCAmix results ####
