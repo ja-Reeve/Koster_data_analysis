@@ -4,7 +4,8 @@
 ### into multiple files, depending on the sequencing lane. This has been a hassel
 ### when read mapping, so these seperate reads are concatonated together to create
 ### a forward read and reverse read file for each individual, that is labeled with
-### with the sample ID.
+### with the sample ID. This job was run on the server 'Rackham', part of the 
+### National Academic Infrastructure for Supercomputing in Sweden.
 ### James Reeve - Göteborgs Universitet
 ### 16/09/2021
 
