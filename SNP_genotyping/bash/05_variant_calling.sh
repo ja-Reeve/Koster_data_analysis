@@ -37,4 +37,4 @@ bcftools mpileup -b $KT_DIR/bam_list.txt \
         -a FORMAT/AD,FORMAT/ADF,FORMAT/ADR,INFO/AD,INFO/ADF,INFO/ADR \
         -f $KT_REF/Littorina_scaffolded_PacBio_run2_7_Oct_2016_unmasked.fasta \
         -R $KT_REF/LG${SLURM_ARRAY_TASK_ID}.bed | \
-        bcftools call -mOz -v --threads 4 -f GQ,GP -o $KT_DIR/vcf/KT_${SLURM_ARRAY_TASK_ID}.vcf.gz
+        bcftools call -mOz -v --threads 4 -f GQ,GP -o $KT_DIR/vcf/KT_LG${SLURM_ARRAY_TASK_ID}.vcf.gz
