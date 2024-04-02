@@ -18,11 +18,11 @@ library(tidyverse) # lib.loc may need to be set if you create your own R package
 library(brms)
 
 ### Parameters
-Iter <- 20000
-Chain <- 4
 Params <- commandArgs(trailingOnly = TRUE) # This draws parameters from a wraper bash script
 Trait <- Params[1]
 Inversion <- Params[2]
+Iter <- Params[3]
+Chain <- Params[4]
 
 
 
