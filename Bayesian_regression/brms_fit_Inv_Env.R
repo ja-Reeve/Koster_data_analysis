@@ -20,15 +20,14 @@ library(tidyverse) # lib.loc may need to be set if you create your own R package
 library(brms)
 
 ### Parameters
-Iter <- 10000
-Chain <- 4
 Params <- commandArgs(trailingOnly = TRUE) # This draws parameters from a wraper bash script
 Inv <- Params[1]
 # Possible values: "LGC1.1", "LGC1.2", "LGC2.1", "LGC4.1", "LGC6.1.2", "LGC6.1.2b", "LGC7.1", "LGC7.2", "LGC9.1", 
 # "LGC10.1", "LGC10.2", "LGC11.1", "LGC12.1", "LGC12.2", "LGC12.3", "LGC12.4", "LGC14.1", "LGC14.3", and "LGC17.1"
 Habitat <- Params[2]
 # Possible values: "rock", "boulder", "mud-sand" and "hab.only"
-
+Iter <- Params[3]
+Chain <- Params[4]
 
 
 #### A: Read in the data ####
