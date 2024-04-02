@@ -20,13 +20,13 @@ library(tidyverse) # lib.loc may need to be set if you create your own R package
 library(brms)
 
 ### Parameters
-Iter <- 40000
-Chain <- 4
 Params <- commandArgs(trailingOnly = TRUE) # This draws parameters from a wraper bash script
 Trait <- Params[1]
 # Possible values: "PC1.pheno", "PC2.pheno", and "PC3.pheno"
 Habitat <- Params[2]
 # Possible values: "rock", "boulder", "mud-sand" and "hab.only"
+Iter <- Params[3]
+Chain <- Params[4]
 
 
 
