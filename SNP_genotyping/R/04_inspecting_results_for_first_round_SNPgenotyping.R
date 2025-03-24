@@ -278,7 +278,7 @@ ggarrange(plotlist = lapply(names(IKTinv), function(x){
 
 
 #### Setting some kind of threshold
-### Fin N snps with tightest LD
+### Find N snps with tightest LD
 ### where N is the number to retain based on Roger's points
 filter.by.LD <- function(cor.matrix, max.num.snps){
   tmp <- cor.matrix
