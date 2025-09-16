@@ -5,9 +5,10 @@
 ### These measurement come from two different sources, i) dissection
 ### records and ii) photos of snail shells that were analysed by 
 ### Jenny Larsson's ShellShaper program in MatLab (https://github.com/jslarsson/ShellShaper)
-### Version 4 of this scripts drops PCAmix to focus just on the phenotypic PCs
-### James Reeve - University of Gothenburg
-### 01/09/2023
+### Version 5 of this scripts separates shell length from shape measurements
+### and adjust the ShellShaper paramteres by shell lengths.
+### James Reeve - DTU Aqua
+### 16/09/2025
 
 ### Measurements ####
 ### Dissection records
@@ -37,27 +38,27 @@
 rm(list = ls())
 dev.off()
 options(stringsAsFactors = FALSE)
+if(Sys.info()['sysname'] == "Windows") {
+  setwd("C:/Users/Windows/Folder")
+} else {
+  setwd("/Users/OSX/directory")
+}
 
 
 ### Packages
 library(tidyverse)
-#library(ggfortify)
 library(ggpubr)
 library(ggcorrplot)
-#library(PCAmixdata)
-library(cluster)
 
+
+#### A: Access and wrangle data ####
 
 ### Access data
-# Filepath
-PATH <- "/input/dir/"
+PATH <- "/path/to/data/"
 # Dissection records
 Diss <- read.csv(paste0(PATH, "KT_dissection_log.csv"))
 # ShellShaper parameters
-ShS <- read.csv(paste0(PATH, "KT_ShellShaper_parameters.v2.csv"))
-
-
-#### A: Format and merge data ####
+ShS <- read.csv(paste0(PATH, "ShellShaper/KT_ShellShaper_parameters.v2.csv"))
 
 ### Remove "_ac" from ShS$snailID
 ShS$snailID <- gsub("_ac.*", "", ShS$snailID)
@@ -81,217 +82,30 @@ ShS$gh <- log(ShS$gh)
 Pheno <- merge(ShS, Diss, by.x = "snailID", by.y = "snail_ID")
 # Note: several snails were photographed, but then found dead upon dissection
 
+### Adjust length measurements by shellLength
+### This accounts for the correlations between these measurements, and should
+### decouple the effects of shell shape from snail size.
+Pheno[, which(colnames(Pheno) %in% c("r0", "z0", "a0", "avg_thick_mm"))] <- 
+  apply(Pheno[, which(colnames(Pheno) %in% c("r0", "z0", "a0", "avg_thick_mm"))], 
+        2, function(X){X / Pheno$shellLength})
 
-#### B: Explore the data ####
-
-### B1: Categorical variables
-# Counts
-table(Pheno$sex) # Sex ratio
-table(Pheno$adult) # Maturity
-table(Pheno$parasite) # Presence of parasites
-
-# Plots
-p1 <- ggplot(Pheno)+
-  geom_bar(aes(x = sex), fill = "#9dbfc4ff")+
-  labs(title = "Sex")+
-  ylim(c(0,1410))+
-  theme_bw()+
-  theme(axis.title = element_blank())
-
-p2 <- ggplot(Pheno)+
-  geom_bar(aes(x = adult), fill = "#9dbfc4ff")+
-  labs(title = "Adult")+
-  ylim(c(0,1410))+
-  theme_bw()+
-  theme(axis.title = element_blank())
-
-p3 <- ggplot(Pheno)+
-  geom_bar(aes(x = parasite), fill = "#9dbfc4ff")+
-  labs(title = "Paracitised")+
-  ylim(c(0,1410))+
-  theme_bw()+
-  theme(axis.title = element_blank())
-
-ggarrange(p1,p2,p3, nrow = 1)
-
-
-### B2: Continuous variables
-# Distribution summaries
-sapply(Pheno %>% select(where(is.numeric)), summary)
-
-# Violin plots function
-Violin.Plot <- function(x, y, axis.labels){
-  if(!(class({{x}}) %in% c("character", "factor"))){stop("Error: 'x' must be a catagorical variable or factor")}
-  if(!(class({{y}}) %in% c("integer", "numeric"))){stop("Error: 'y' must be numeric or an iteger vector")}
-  if(length(axis.labels) != 2){stop("Error: 'axis.labels' must be a vector of two characters c(x, y)")}
-  
-  # Calculate mean
-  tmp <- Pheno %>% group_by({{x}}) %>% summarise("Var" = unique({{x}}), "Avg" = mean(y))
-  
-  # Violin plot
-  p <- ggplot(Pheno, aes({{x}}, {{y}}, colour = {{x}}))+
-    geom_jitter(size = 0.2, width = 0.1, height = 0)+
-    geom_violin(aes(fill = {{x}}), alpha = 0.2, colour = "black", linewidth = 0.1)+
-    geom_point(data = tmp, aes(Var, Avg), colour = "grey20", pch = 18, size = 4)+
-    labs(x = axis.labels[1], y = axis.labels[2])+
-    scale_colour_manual(values = c("#FF55DD", "#2A7FFF"))+
-    theme_classic()+
-    theme(legend.position = "none")
-  
-  return(p)
-}
-
-# Violin plots by sex
-ggarrange(plotlist = list(
-  Violin.Plot(sex, shellLength, c("", "Shell length (mm)")),
-  Violin.Plot(sex, avg_thick_mm, c("", "Shell thickness (mm)")),
-  Violin.Plot(sex, apAngle, c("", "Apeture angle (°)")),
-  Violin.Plot(sex, eccentricity, c("", "Eccentricity")),
-  Violin.Plot(sex, gh, c("", "Growth height")),
-  Violin.Plot(sex, gw, c("", "Growth width")),
-  Violin.Plot(sex, r0, c("", "Spiral radius (mm)")), 
-  Violin.Plot(sex, z0, c("", "Spiral height (mm)")),
-  Violin.Plot(sex, a0, c("", "Apeture size (mm)"))),
-  nrow = 3, ncol = 3)
-
-# Violin plots by maturity
-ggarrange(plotlist = list(
-  Violin.Plot(adult, shellLength, c("", "Shell length (mm)")),
-  Violin.Plot(adult, avg_thick_mm, c("", "Shell thickness (mm)")),
-  Violin.Plot(adult, apAngle, c("", "Apeture angle (°)")),
-  Violin.Plot(adult, eccentricity, c("", "Eccentricity")),
-  Violin.Plot(adult, gh, c("", "Growth height")),
-  Violin.Plot(adult, gw, c("", "Growth width")),
-  Violin.Plot(adult, r0, c("", "Spiral radius (mm)")), 
-  Violin.Plot(adult, z0, c("", "Spiral height (mm)")),
-  Violin.Plot(adult, a0, c("", "Apeture size (mm)"))),
-  nrow = 3, ncol = 3)
-
-
-# Pairwise scatterplots
-Pairwise.Scatterplot <- function(x, y, axis.labels){
-  if(!(class({{x}}) %in% c("integer", "numeric"))){stop("Error: 'x' must be numeric or an iteger vector")}
-  if(!(class({{y}}) %in% c("integer", "numeric"))){stop("Error: 'y' must be numeric or an iteger vector")}
-  if(length(axis.labels) != 2){stop("Error: 'axis.labels' must be a vector of two characters c(x, y)")}
-  
-  ggplot(Pheno, aes({{x}}, {{y}}))+
-    geom_point(size = 0.6, alpha = 0.4)+
-    labs(x = axis.labels[1], y = axis.labels[2])+
-    theme_classic()+
-    theme(axis.title = element_text(size = 6))
-}
-
-ggarrange(
-  ggarrange(plotlist = list(Pairwise.Scatterplot(shellLength, avg_thick_mm, c("Shell length (mm)", "Shell thickness (mm)")),
-                            Pairwise.Scatterplot(shellLength, apAngle, c("Shell length (mm)", "Apeture angle (°)")),
-                            Pairwise.Scatterplot(shellLength, eccentricity, c("Shell length (mm)", "Eccentricity")),
-                            Pairwise.Scatterplot(shellLength, gh, c("Shell length (mm)", "Growth height")),
-                            Pairwise.Scatterplot(shellLength, gw, c("Shell length (mm)", "Growth width")),
-                            Pairwise.Scatterplot(shellLength, r0, c("Shell length (mm)", "Spiral radius (mm)")),
-                            Pairwise.Scatterplot(shellLength, z0, c("Shell length (mm)", "Spiral height (mm)")),
-                            Pairwise.Scatterplot(shellLength, a0, c("Shell length (mm)", "Aperture size (mm)"))), 
-            nrow = 1, ncol = 8),
-  ggarrange(plotlist = list(ggplot()+theme_void(),
-                            Pairwise.Scatterplot(avg_thick_mm, apAngle, c("Shell thickness (mm)", "Apeture angle (°)")),
-                            Pairwise.Scatterplot(avg_thick_mm, eccentricity, c("Shell thickness (mm)", "Eccentricity")),
-                            Pairwise.Scatterplot(avg_thick_mm, gh, c("Shell thickness (mm)", "Growth height")),
-                            Pairwise.Scatterplot(avg_thick_mm, gw, c("Shell thickness (mm)", "Growth width")),
-                            Pairwise.Scatterplot(avg_thick_mm, r0, c("Shell thickness (mm)", "Spiral radius (mm)")),
-                            Pairwise.Scatterplot(avg_thick_mm, z0, c("Shell thickness (mm)", "Spiral height (mm)")),
-                            Pairwise.Scatterplot(avg_thick_mm, a0, c("Shell thickness (mm)", "Apeture size (mm)"))), 
-            nrow = 1, ncol = 8),
-  ggarrange(plotlist = list(ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            Pairwise.Scatterplot(apAngle, eccentricity, c("Apeture angle (°)", "Eccentricity")),
-                            Pairwise.Scatterplot(apAngle, gh, c("Apeture angle (°)", "Growth height")),
-                            Pairwise.Scatterplot(apAngle, gw, c("Apeture angle (°)", "Growth width")),
-                            Pairwise.Scatterplot(apAngle, r0, c("Apeture angle (°)", "Spiral radius (mm)")),
-                            Pairwise.Scatterplot(apAngle, z0, c("Apeture angle (°)", "Spiral height (mm)")),
-                            Pairwise.Scatterplot(apAngle, a0, c("Apeture angle (°)", "Aperture size (mm)"))), 
-            nrow = 1, ncol = 8),
-  ggarrange(plotlist = list(ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            Pairwise.Scatterplot(eccentricity, gh, c("Eccentricity", "Growth height")),
-                            Pairwise.Scatterplot(eccentricity, gw, c("Eccentricity", "Growth width")),
-                            Pairwise.Scatterplot(eccentricity, r0, c("Eccentricity", "Spiral radius (mm)")),
-                            Pairwise.Scatterplot(eccentricity, z0, c("Eccentricity", "Spiral height (mm)")),
-                            Pairwise.Scatterplot(eccentricity, a0, c("Eccentricity", "Aperture size (mm)"))), 
-            nrow = 1, ncol = 8),
-  ggarrange(plotlist = list(ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            Pairwise.Scatterplot(gh, gw, c("Growth height", "Growth width")),
-                            Pairwise.Scatterplot(gh, r0, c("Growth height", "Spiral radius (mm)")),
-                            Pairwise.Scatterplot(gh, z0, c("Growth height", "Spiral height (mm)")),
-                            Pairwise.Scatterplot(gh, a0, c("Growth height", "Aperture size (mm)"))), 
-            nrow = 1, ncol = 8),
-  ggarrange(plotlist = list(ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            Pairwise.Scatterplot(gw, r0, c("Growth width", "Spiral radius (mm)")),
-                            Pairwise.Scatterplot(gw, z0, c("Growth width", "Spiral height (mm)")),
-                            Pairwise.Scatterplot(gw, a0, c("Growth width", "Aperture size (mm)"))), 
-            nrow = 1, ncol = 8),
-  ggarrange(plotlist = list(ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            Pairwise.Scatterplot(r0, z0, c("Spiral radius (mm)", "Spiral height (mm)")),
-                            Pairwise.Scatterplot(r0, a0, c("Spiral radius (mm)", "Aperture size (mm)"))), 
-            nrow = 1, ncol = 8),
-  ggarrange(plotlist = list(ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            ggplot()+theme_void(),
-                            Pairwise.Scatterplot(z0, a0, c("Spiral height (mm)", "Aperture size (mm)"))), 
-            nrow = 1, ncol = 8),
-nrow = 8, ncol = 1)
-
-# Correlation heatmap among variables
+# Check adjustment with Corrplot
 ggcorrplot(cor(Pheno %>% select(where(is.numeric))), type = "upper",
            p.mat = cor_pmat(Pheno %>% select(where(is.numeric))),
            title = "Littorina saxatilis phenotypes")
 
-
-#### C: Adjustments based on correlations ####
-
-Pheno2 <- Pheno
-
-### All measurements in mm are strongly correlated with shell length, with more variation
-### from larger shells. To account for this heteroscedaticity I will scale dividing r0, z0, 
-### a0 and shell thickness by shell length.
-#Pheno2[, which(colnames(Pheno2) %in% c("r0", "z0", "a0", "avg_thick_mm"))] <- 
-#  apply(Pheno2[, which(colnames(Pheno2) %in% c("r0", "z0", "a0", "avg_thick_mm"))], 
-#        2, function(X){X / Pheno2$shellLength})
-
 ### Adjust eccentricity by aperture size (a0)
 ### This is a correction recommended by Jenny Larsson
 ### It scales the eccentricity measurement by the radius of the aperture
-Pheno2$eccentricity <- Pheno2$eccentricity / Pheno2$a0
-
-### Remove apAngle due to weak correlation with other variables
-#Pheno2$apAngle <-  NULL
-
-### Merge gw and gh to reduce total axes considered in PCA
-### gh - gw = a measurement of the convexity of whorls along the shell
-### This is a correction recommended by Jenny Larsson
-#Pheno2$convexity <- Pheno2$gh- Pheno2$gw
-#Pheno2$gh <- NULL
-#Pheno2$gw <- NULL
+Pheno$eccentricity <- Pheno$eccentricity / Pheno$a0  
 
 
-#### D: PCA ####
 
-### Scale and centre categorical data
+#### B: Run the PCA ####
+### Drop ShellLength
+Pheno2 <- Pheno[,which(colnames(Pheno) != "shellLength")]
+
+### Scale and centre continuous data
 tmp <- scale(Pheno2[ ,which(sapply(Pheno2, class) == "numeric")], center = TRUE, scale = TRUE)
 
 # Add sample as rownames
@@ -306,16 +120,17 @@ PCs <- as.data.frame("Snail_ID" = rownames(Pheno.PCA$x),
 
 # Get variance explained per axis
 Pvar <- data.frame("PC" = colnames(Pheno.PCA$rotation),
-                    "p.var" = (Pheno.PCA$sdev^2) / sum(Pheno.PCA$sdev^2) * 100)
+                   "p.var" = (Pheno.PCA$sdev^2) / sum(Pheno.PCA$sdev^2) * 100)
 
 # Extract variable loadings
 PCAloadings <- data.frame("Vars" = rownames(Pheno.PCA$rotation), 
                           Pheno.PCA$rotation)
 
 
-#### E: Plot PCA ####
 
-### E1: PC1 vs PC2 scatterplot
+#### C: Plots ####
+
+### PC1 vs PC2 scatterplot
 # Copy dimensions 460 x 400
 ggplot() +
   geom_point(data = PCs, aes(x = PC1, y = PC2, colour = Pheno2$sex), 
@@ -341,17 +156,18 @@ ggplot() +
         plot.title = element_text(size = 18, face = "bold"))
 
 
-### E2: Screeplot 
+### Screeplot 
 # Copy ratio: 400 x 400
 ggplot(Pvar, aes(x = as.numeric(gsub("PC", "", PC)), y = p.var))+
   geom_line()+
   geom_point()+
   labs(x = "Principal component", y = "Percentage varaince explained")+
   ylim(c(0, 100))+
-  scale_x_continuous(breaks = 1:nrow(Pvar2))+
+  scale_x_continuous(breaks = 1:nrow(Pvar))+
   theme_classic()
 
-### E3: Histogram of PC1-5
+
+### Histogram of PC1-5
 # Copy ratio: 300 X 500
 PCA.hist <- function(data, principal.compent, binwidth = 0.2,
                      highlight.colour = "grey50"){
@@ -385,7 +201,7 @@ ggarrange(PCA.hist(PCs, principal.compent = 1, binwidth = 0.4,
           ncol = 1)
 
 
-### E4: PCA scatter plot PC1-9
+### PCA scatter plot PC1-8
 # Copy ratio: 560 x 560
 PCA.Scatterplot <- function(i, j){
   ggplot(PCs, aes(x = PCs[,i], y = PCs[,j], colour = Pheno2$sex))+
@@ -407,30 +223,37 @@ PCA.Scatterplot <- function(i, j){
 }
 
 p_ <- ggplot()+theme_void()
-ggarrange(ggarrange(PCA.Scatterplot(1,2), PCA.Scatterplot(1,3), PCA.Scatterplot(1,4),
+ggarrange(
+          # Row1: PC1 vs. PC2-8
+          ggarrange(PCA.Scatterplot(1,2), PCA.Scatterplot(1,3), PCA.Scatterplot(1,4),
                     PCA.Scatterplot(1,5), PCA.Scatterplot(1,6), PCA.Scatterplot(1,7),
-                    PCA.Scatterplot(1,8), PCA.Scatterplot(1,9), nrow = 1),
+                    PCA.Scatterplot(1,8), nrow = 1),
+          # Row2: PC2 vs. PC3-8
           ggarrange(p_, PCA.Scatterplot(2,3), PCA.Scatterplot(2,4), 
                     PCA.Scatterplot(2,5), PCA.Scatterplot(2,6), PCA.Scatterplot(2,7),
-                    PCA.Scatterplot(2,8), PCA.Scatterplot(2,9), nrow = 1),
+                    PCA.Scatterplot(2,8), nrow = 1),
+          # Row3: PC3 vs. PC4-8
           ggarrange(p_, p_, PCA.Scatterplot(3,4), 
                     PCA.Scatterplot(3,5), PCA.Scatterplot(3,6), PCA.Scatterplot(3,7),
-                    PCA.Scatterplot(3,8), PCA.Scatterplot(3,9), nrow = 1),
+                    PCA.Scatterplot(3,8), nrow = 1),
+          # Row4: PC4 vs. PC5-8
           ggarrange(p_, p_, p_, 
                     PCA.Scatterplot(4,5), PCA.Scatterplot(4,6), PCA.Scatterplot(4,7),
-                    PCA.Scatterplot(4,8), PCA.Scatterplot(4,9), nrow = 1),
+                    PCA.Scatterplot(4,8), nrow = 1),
+          # Row5: PC5 vs. PC6-8
           ggarrange(p_, p_, p_, 
                     p_, PCA.Scatterplot(5,6), PCA.Scatterplot(5,7),
-                    PCA.Scatterplot(5,8), PCA.Scatterplot(5,9), nrow = 1),
+                    PCA.Scatterplot(5,8), nrow = 1),
+          # Row6: PC6 vs. PC7-8
           ggarrange(p_, p_, p_, p_, p_, PCA.Scatterplot(6,7), 
-                    PCA.Scatterplot(6,8), PCA.Scatterplot(6,9), nrow = 1),
+                    PCA.Scatterplot(6,8), nrow = 1),
+          # Row7: PC7 vs. PC8
           ggarrange(p_, p_, p_, p_, p_, p_, 
-                    PCA.Scatterplot(7,8), PCA.Scatterplot(7,9), nrow = 1),
-          ggarrange(p_, p_, p_, p_, p_, p_, p_, PCA.Scatterplot(8,9), nrow = 1),
+                    PCA.Scatterplot(7,8), nrow = 1),
           ncol = 1)
 
 
-### E5: Factor loading plots
+### Factor loading plots
 # Copy ratio: 1000 x 250
 PCA.load <- function(data, principal.component, highlight.colour = "grey50"){
   ggplot(data)+
@@ -444,7 +267,7 @@ PCA.load <- function(data, principal.component, highlight.colour = "grey50"){
     theme(axis.title.y = element_blank(),
           axis.text.y = element_blank())
 }
- 
+
 ggarrange(PCA.load(PCAloadings, principal.component = PC1, highlight.colour = "#888EEB"),
           PCA.load(PCAloadings, principal.component = PC2, highlight.colour = "#74EBA3"),
           PCA.load(PCAloadings, principal.component = PC3, highlight.colour = "#D48CE6"),
@@ -453,7 +276,8 @@ ggarrange(PCA.load(PCAloadings, principal.component = PC1, highlight.colour = "#
           nrow = 1)
 
 
-#### F: Determine number of PCs to retain ####
+
+#### D: Determine number of PCs to retain ####
 
 ### Broken stick model
 Pvar$BSexp <- sapply(1:nrow(Pvar), function(i){ sum(1/i:nrow(Pvar))/nrow(Pvar) * 100})
@@ -471,17 +295,18 @@ Pvar$cumm.var <- Pvar$p.var[1]
 for(i in 2:nrow(Pvar)){
   Pvar$cumm.var[i] <- Pvar$p.var[i] + Pvar$cumm.var[i-1]
 }
+# 75% = PC1-3
+# 80% = PC1-4
+# 90% = PC1-5
 
-# 75% = PC1-2 (almost)
-# 80% = PC1-3
-# 90% = PC1-4
 
 
-#### G: Save PCA ####
-OUT <- "/output/dir/"
+#### E: Save PCA ####
+OUT <- "/output/filepath/"
 
 # Save principal components
-write.csv(PCs, paste0(OUT, "principal_components/Pheno_PC1-9.v2.csv"), quote = FALSE)
+write.csv(PCs, paste0(OUT, "principal_components/Pheno_PC1-8.v3.csv"), 
+          quote = FALSE)
 
 # Save eigenvalues and percent of variance explained
-write.csv(Pvar, paste0(OUT, "eigenvalues/Pheno_variance_explained.csv"), quote = FALSE)
+write.csv(Pvar, paste0(OUT, "eigenvalues/Pheno_variance_explained.v3.csv"), quote = FALSE)
