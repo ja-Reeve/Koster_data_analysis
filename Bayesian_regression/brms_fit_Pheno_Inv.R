@@ -36,7 +36,7 @@ Pheno <- read.csv(paste0(PATH, "phenoPCA/Pheno_PC1-8.v3.csv"),
 Diss <- read.csv(paste0(PATH, "KT_dissection_log.csv"))
 
 ### Shell Length from ShellShaper parameters
-SL <- read.csv(paste0(DIR, "Data/KT_ShellShaper_parameters.v2.csv"))
+SL <- read.csv(paste0(PATH, "KT_ShellShaper_parameters.v2.csv"))
 SL$snailID <- substr(SL$snailID,1,6)
 
 ### Genotypes
@@ -88,7 +88,7 @@ Pheno$adult <- ifelse(Pheno$adult, "adult", "juvenile")
 
 
 ### 3: Add shellLength to 'Pheno'
-Pheno <- right_join(Pheno, SL[,c("snailID", "shellLength")], by = c("snail_ID", "snailID"))
+Pheno <- right_join(Pheno, SL[,c("snailID", "shellLength")], by = c("snail_ID" = "snailID"))
 
 
 ### 4: Add inversion frequencies
