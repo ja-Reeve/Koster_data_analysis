@@ -40,11 +40,15 @@ Pheno <- read.csv(paste0(PATH, "phenoPCA/Pheno_PC1-8.v3.csv"),
 ### Dissection record
 Diss <- read.csv(paste0(PATH, "KT_dissection_log.csv"))
 
+### Shell Length from ShellShaper parameters
+SL <- read.csv(paste0(PATH, "KT_ShellShaper_parameters.v2.csv"))
+SL$snailID <- substr(SL$snailID,1,6)
+
 # Drone photo measurements
 DPh <- read.csv(paste0(PATH,"KT_drone_photos_v2.csv"))
 
 ### Sampling date from field notes
-FN <- read.csv(paste0(DIR, "Data/KT_fieldnotes.v2.csv"))[,c("Site", "Date")]
+FN <- read.csv(paste0(PATH, "KT_fieldnotes.v2.csv"))[,c("Site", "Date")]
 FN$Date <- as.Date(FN$Date, format = "%d/%m/%y") # Reformate as a date.time vector
 
 ### Envrionmental PCA
@@ -102,7 +106,7 @@ Pheno$adult <- ifelse(Pheno$adult, "adult", "juvenile")
 
 
 ### 3: Add shellLength to 'Pheno'
-Pheno <- right_join(Pheno, SL[,c("snailID", "shellLength")], by = c("snail_ID", "snailID"))
+Pheno <- right_join(Pheno, SL[,c("snailID", "shellLength")], by = c("snail_ID" = "snailID"))
 
 
 ### 4: Add habitat to 'Pheno'
