@@ -5,6 +5,7 @@
 
 ### James Reeve - University of Gothenburg
 ### 2023-06-23
+### Version 2 (2025-09-30): phenotypic variables adjusted by shell length
 
 ### Preparation
 options(stringsAsFactors = FALSE)
@@ -28,11 +29,15 @@ Chain <- Params[4]
 
 #### A: Read in the data ####
 
-Pheno <- read.csv(paste0(PATH, "phenoPCA/Pheno_PC1-9.v2.csv"),
-                      col.names = c("snail_ID", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9"))
+Pheno <- read.csv(paste0(PATH, "phenoPCA/Pheno_PC1-8.v3.csv"),
+                      col.names = c("snail_ID", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8"))
 
 ### Dissection record
 Diss <- read.csv(paste0(PATH, "KT_dissection_log.csv"))
+
+### Shell Length from ShellShaper parameters
+SL <- read.csv(paste0(DIR, "Data/KT_ShellShaper_parameters.v2.csv"))
+SL$snailID <- substr(SL$snailID,1,6)
 
 ### Genotypes
 GT <- read.csv(paste0(PATH, "Koster_SNP_imputed_20221031.csv"), header = TRUE)
@@ -60,17 +65,16 @@ GT_inv$LGC14.1[GT_inv$LGC14.1 == 2] <- "AA"
 # Further sample 'GT_snp' to just genetic background
 SNPs <- SNP_info %>%
   filter(inv == "background") %>%
-  summarise("SNP" = paste(CHROM, POS, sep = "_")) %>%
-  unlist()
-GT_snp <- GT_snp[,SNPs]
+  filter(!(LG == 5 & between(mp, 15, 47))) %>%         # Drop SNPs in LGC5.1 (LG5: 15 - 47 cM)
+  filter(!(str_detect(NAME, "Contig70288_47522"))) %>% # Finally, drop outlier which impacts PCA pattern
+  reframe("SNP" = paste(CHROM, POS, sep = "_"))
+GT_snp <- GT_snp[,colnames(GT_snp) %in% SNPs$SNP]
 
 # Add rownames
 rownames(GT_snp) <- GT$snail
 
 # Clean-up files
 rm(GT, SNPs, SNP_info)
-
-
 
 
 ### 2: Add sex to 'Pheno'
@@ -83,7 +87,11 @@ Pheno[Pheno$sex == "J", "sex"] <- "F"
 Pheno$adult <- ifelse(Pheno$adult, "adult", "juvenile")
 
 
-### 3: Add inversion frequencies
+### 3: Add shellLength to 'Pheno'
+Pheno <- right_join(Pheno, SL[,c("snailID", "shellLength")], by = c("snail_ID", "snailID"))
+
+
+### 4: Add inversion frequencies
 # Filter to just snails that are in the SNP data
 Pheno <- Pheno[Pheno$snail_ID %in% GT_inv$snail,]
 # Filter the genotypes
@@ -93,7 +101,7 @@ GT_snp <- GT_snp[Pheno$snail_ID %in% rownames(GT_snp),]
 PhenoDat <- inner_join(Pheno, GT_inv, by = c("snail_ID" = "snail"))
 
 
-### 4: Get genetic covaraince from SNP genotypes
+### 5: Get genetic covaraince from SNP genotypes
 
 # Filter to snails in Phenotypic data
 GT_snp <- GT_snp[PhenoDat$snail_ID,]
@@ -127,7 +135,7 @@ mod_null <- brm(Pheno ~ sex + adult + (1|gr(snail_ID, cov = GD)),
                    iter = Iter, chains = Chain, cores = Chain)
 mod_null <- add_criterion(mod_null, criterion = "loo")
 # Save model fit
-save(mod_null, file = paste0(PATH, "brms_results/brms_fit.", Trait, "_", Inversion, "_null"))
+save(mod_null, file = paste0(PATH, "brms_results/brms_fit.", Trait, "_", Inversion, "_v2_null"))
 
 
 ### 2: Tested model
@@ -140,4 +148,4 @@ mod <- brm(Pheno ~ sex + adult + LGC1.1 + LGC1.2 + LGC2.1 + LGC4.1 + LGC6.1.2 + 
                    iter = Iter, chains = Chain, cores = Chain)
 
 mod <- add_criterion(mod, criterion = "loo")
-save(mod, file = paste0(PATH, "brms_results/brms_fit.", Trait, "_", Inversion))
+save(mod, file = paste0(PATH, "brms_results/brms_fit.", Trait, "_", Inversion, "_v2"))
