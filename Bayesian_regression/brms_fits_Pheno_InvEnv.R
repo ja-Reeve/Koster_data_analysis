@@ -6,6 +6,8 @@
 
 ### James Reeve - University of Gothenburg
 ### 2024-01-12
+### Version 2 (2025-09-22): phenotypic variables modified and sampling date added
+### as a group-level factor.
 
 ### Preparation
 options(stringsAsFactors = FALSE)
@@ -21,7 +23,7 @@ PATH <- "/path/to/data/"
 ### Parameters
 Params <- commandArgs(trailingOnly = TRUE) # This draws parameters from a wraper bash script
 Trait <- Params[1]
-# Possible values = "PC1.pheno", "PC2.pheno", and "PC3.pheno"
+# Possible values = "PC1.pheno", "PC2.pheno", and "shellLength"
 Habitat <- Params[2]
 # Possible values = "rock", "boulder", "mud-sand", and "hab.only"
 Iter <- Params[3]
@@ -32,13 +34,21 @@ Chain <- Params[4]
 #### A: Read in the data ####
 
 ### Phenotyp PCs
-Pheno <- read.csv(paste0(PATH, "phenoPCA/Pheno_PC1-9.v2.csv"), col.names = c("snail_ID", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8", "PC9"))
+Pheno <- read.csv(paste0(PATH, "phenoPCA/Pheno_PC1-8.v3.csv"), col.names = c("snail_ID", "PC1", "PC2", "PC3", "PC4", "PC5", "PC6", "PC7", "PC8"))
 
 ### Dissection records
 Diss <- read.csv(paste0(PATH, "KT_dissection_log.csv"))
 
+### Shell Length from ShellShaper parameters
+SL <- read.csv(paste0(DIR, "Data/KT_ShellShaper_parameters.v2.csv"))
+SL$snailID <- substr(SL$snailID,1,6)
+
 ### Drone photo measurements
 DPh <- read.csv(paste0(PATH,"KT_drone_photos_v2.csv"))
+
+### Sampling date from field notes
+FN <- read.csv(paste0(DIR, "Data/KT_fieldnotes.v2.csv"))[,c("Site", "Date")]
+FN$Date <- as.Date(FN$Date, format = "%d/%m/%y") # Reformate as a date.time vector
 
 ### Envrionmental PCs
 if(Habitat == "hab.only"){
@@ -83,9 +93,10 @@ GT_inv$LGC14.1[GT_inv$LGC14.1 == 2] <- "AA"
 # Further sample 'GT_snp' to just genetic background
 SNPs <- SNP_info %>%
   filter(inv == "background") %>%
-  summarise("SNP" = paste(CHROM, POS, sep = "_")) %>%
-  unlist()
-GT_snp <- GT_snp[,SNPs]
+  filter(!(LG == 5 & between(mp, 15, 47))) %>%            # Drop SNPs in LGC5.1 (LG5: 15 - 47 cM)
+  filter(!(str_detect(NAME, "Contig70288_47522"))) %>%    # Finally, drop outlier which impacts PCA pattern
+  reframe("SNP" = paste(CHROM, POS, sep = "_"))
+GT_snp <- GT_snp[,colnames(GT_snp) %in% SNPs$SNP]
 
 # Add rownames
 rownames(GT_snp) <- GT$snail
@@ -103,12 +114,20 @@ Pheno[Pheno$sex == "J", "sex"] <- "F"
 Pheno$adult <- ifelse(Pheno$adult, "adult", "juvenile")
 
 
-### 3: Add habitat to 'Pheno'
+### 3: Add shellLength to 'Pheno'
+Pheno <- right_join(Pheno, SL[,c("snailID", "shellLength")], by = c("snail_ID", "snailID"))
+
+
+### 4: Add habitat to 'Pheno'
 Pheno <- DPh %>% select(Site, Habitat) %>%
   right_join(Pheno, by = c("Site" = "site"))
 
 
-### 4: Add inversion frequencies to 'Pheno'
+### 5: Add sampling date
+Pheno <- merge(Pheno, FN, by = "Site")
+
+
+### 6: Add inversion frequencies to 'Pheno'
 # Re-score inversions as the count of alternative alleles
 tmp <- sapply(GT_inv[,-1],
         function(X){
@@ -132,13 +151,13 @@ tmp[GT_inv$LGC6.1.2 == "BB", "LGC6.1.2b"] <- 2
 Pheno <- inner_join(Pheno, tmp, by = c("snail_ID" = "snail"))
 
 
-### 5: Add envrionmental variables
+### 7: Add envrionmental variables
 PhenoDat <- inner_join(Pheno, Env, by = c("Site" = "ID"), suffix = c(".pheno", ".env"))
 # Filter to snails in genotypes
 PhenoDat <- PhenoDat[PhenoDat$snail_ID %in% rownames(GT_snp),]
 
 
-### 6: Get genetic covaraince from SNP genotypes
+### 8: Get genetic covaraince from SNP genotypes
 
 # Filter to snails in Phenotypic data
 tmp2 <- GT_snp[PhenoDat$snail_ID,]
@@ -163,12 +182,12 @@ colnames(PhenoDat)[which(colnames(PhenoDat) == Trait)] <- "Pheno"
 #### D: brms model ####
 
 ### 1: Null model
-mod_null <- brm(Pheno ~ sex + adult + (1|gr(snail_ID, cov = GD)),
+mod_null <- brm(Pheno ~ sex + adult + (1|gr(snail_ID, cov = GD)) + (1|Date),
                 data = PhenoDat, data2 = list(GD = GT_cov),
                 iter = Iter, chains = Chain, cores = 4L)
 mod_null <- add_criterion(mod_null, criterion = "loo")
 # Save model fit
-save(mod_null, file = paste0(PATH, "brms_results/brms_fit.", Trait, "_InvEnv_", Habitat, "_null"))
+save(mod_null, file = paste0(PATH, "brms_results/brms_fit.", Trait, "_InvEnv_", Habitat, "_v2_null"))
 
 
 ### 2: Tested model
@@ -176,17 +195,17 @@ if(Habitat == "hab.only"){
   mod <- brm(Pheno ~ Habitat + sex + adult +
                         LGC1.1 + LGC1.2 + LGC2.1 + LGC4.1 + LGC6.1.2 + LGC6.1.2b + LGC7.1 + LGC7.2 +
                         LGC9.1 + LGC10.1 + LGC10.2 + LGC11.1 + LGC12.1 + LGC12.2 + LGC12.3 + LGC12.4 +
-                        LGC14.1 + LGC14.3 + LGC17.1 + (1|gr(snail_ID, cov = GD)),
+                        LGC14.1 + LGC14.3 + LGC17.1 + (1|gr(snail_ID, cov = GD)) + (1|Date),
              data = PhenoDat, data2 = list(GD = GT_cov),
              iter = Iter, chains = Chain, cores = 4L)
 } else {
   mod <- brm(Pheno ~ sex + adult + PC1.env + PC2.env + PC3.env +
                         LGC1.1 + LGC1.2 + LGC2.1 + LGC4.1 + LGC6.1.2 + LGC6.1.2b + LGC7.1 + LGC7.2 +
                         LGC9.1 + LGC10.1 + LGC10.2 + LGC11.1 + LGC12.1 + LGC12.2 + LGC12.3 + LGC12.4 +
-                        LGC14.1 + LGC14.3 + LGC17.1 + (1|gr(snail_ID, cov = GD)),
+                        LGC14.1 + LGC14.3 + LGC17.1 + (1|gr(snail_ID, cov = GD)) + (1|Date),
              data = PhenoDat, data2 = list(GD = GT_cov),
              iter = Iter, chains = Chain, cores = 4L)
 }
 
 mod <- add_criterion(mod, criterion = "loo")
-save(mod, file = paste0(PATH, "brms_results/brms_fit.", Trait, "_InvEnv_", Habitat))
+save(mod, file = paste0(PATH, "brms_results/brms_fit.", Trait, "_InvEnv_", Habitat, "_v2"))
