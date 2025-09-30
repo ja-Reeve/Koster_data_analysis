@@ -7,6 +7,7 @@
 
 ### James Reeve - University of Gothenburg
 ### 2023-06-05
+### Version 2 (2025-09-30): sampling date added as a group-level factor.
 
 ### Preparation
 options(stringsAsFactors = FALSE)
@@ -47,6 +48,9 @@ Env <- rbind.data.frame(RS, BS, MSS)
 Env <- Env[order(Env$ID),]
 rm(RS,BS,MSS)
 
+### Sampling date from field notes
+FN <- read.csv(paste0(DIR, "Data/KT_fieldnotes.v2.csv"))[,c("Site", "Date")]
+FN$Date <- as.Date(FN$Date, format = "%d/%m/%y") # Reformate as a date.time vector
 
 ### Genotypes
 GT <- read.csv(paste0(PATH, "Koster_SNP_imputed_20221031.csv"), header = TRUE)
@@ -87,10 +91,12 @@ GT_inv[GT_inv$LGC6.1.2 == "BB", "LGC6.1.2b_trials"] <- 2
 # Further sample 'GT_snp' to just genetic background
 SNPs <- SNP_info %>%
   filter(inv == "background") %>%
-  summarise("SNP" = paste(CHROM, POS, sep = "_")) %>%
-  unlist()
-GT_snp <- GT_snp[,SNPs]
+  filter(!(LG == 5 & between(mp, 15, 47))) %>% # Drop SNPs in LGC5.1 (LG5: 15 - 47 cM)
+  filter(!(str_detect(NAME, "Contig70288_47522"))) %>% # Finally, drop outlier which impacts PCA pattern
+  reframe("SNP" = paste(CHROM, POS, sep = "_"))
+GT_snp <- GT_snp[,colnames(GT_snp) %in% SNPs$SNP]
 
+# Add rownames
 rownames(GT_snp) <- GT$snail
 
 # Clean-up files
@@ -115,7 +121,11 @@ InvData[InvData$sex == "J", "sex"] <- "F"
 InvData$adult <- ifelse(InvData$adult, "adult", "juvenile")
 
 
-### 4: Get genetic covaraince from SNP genotypes
+### 4: Add shellLength to 'Pheno'
+InvData <- right_join(InvData, SL[,c("snailID", "shellLength")], by = c("snail_ID", "snailID"))
+
+
+### 5: Get genetic covaraince from SNP genotypes
 # Trnspose genotype table and divide by 2
 GT_snp <- t(GT_snp / 2)
 
@@ -127,7 +137,7 @@ GT_cov <- cov(GT_snp)
 diag(GT_cov) <- diag(GT_cov) + min(GT_cov)/100
 
 
-### 4: Change inversion frequnecies to be numeric response
+### 6: Change inversion frequnecies to be numeric response
 # Select focal inversion and name it 'Inv'
 if(Inv == "LGC6.1.2b"){
         colnames(InvData)[which(colnames(InvData) == "LGC6.1.2")] <- "Inv"
@@ -179,13 +189,13 @@ if(Habitat %in% unique(InvData$Habitat)){
 
 if(Inv == "LGC6.1.2b"){
         # Change so N trials RR = 0, RA = 1 & RB = 1
-        mod_null <- brm(Inv | trials(LGC6.1.2b_trials) ~ sex + (1 | gr(snail_ID, cov = GD)),
+        mod_null <- brm(Inv | trials(LGC6.1.2b_trials) ~ sex + (1 | gr(snail_ID, cov = GD)) + (1|Date),
                         data = InvData, data2 = list(GD = GT_cov),
                         family = binomial(link = "logit"),
                         iter = Iter, chains = Chain, cores = Chain)
 } else {
         # Otherwise N trials = 2
-        mod_null <- brm(Inv | trials(2) ~ sex + adult + (1 | gr(snail_ID, cov = GD)),
+        mod_null <- brm(Inv | trials(2) ~ sex + adult + (1 | gr(snail_ID, cov = GD)) + (1|Date),
                         data = InvData, data2 = list(GD = GT_cov),
                         family = binomial(link = "logit"),
                         iter = Iter, chains = Chain, cores = Chain)
@@ -194,7 +204,7 @@ if(Inv == "LGC6.1.2b"){
 mod_null <- add_criterion(mod_null, criterion = "loo")
 
 # Save model fit
-save(mod_null, file = paste0(PATH, "brms_results/brms_fit.", Inv, "_", Habitat, "_null"))
+save(mod_null, file = paste0(PATH, "brms_results/brms_fit.", Inv, "_", Habitat, "_v2_null"))
 
 
 ### 2: Tested model
@@ -202,13 +212,13 @@ save(mod_null, file = paste0(PATH, "brms_results/brms_fit.", Inv, "_", Habitat, 
 if(Habitat == "hab.only"){
         if(Inv == "LGC6.1.2b"){
                 # hab.only LGC6.1/2b
-                mod <- brm(Inv | trials(LGC6.1.2b_trials) ~ Habitat + sex + adult + (1|gr(snail_ID, cov = GD)),
+                mod <- brm(Inv | trials(LGC6.1.2b_trials) ~ Habitat + sex + adult + (1|gr(snail_ID, cov = GD)) + (1|Date),
                         data = InvData, data2 = list(GD = GT_cov),
                         family = binomial(link = "logit"),
                         iter = Iter, chains = Chain, cores = Chain)
         } else {
                 # hab.only all other inversions
-                mod <- brm(Inv | trials(2) ~ Habitat + sex + adult + (1|gr(snail_ID, cov = GD)),
+                mod <- brm(Inv | trials(2) ~ Habitat + sex + adult + (1|gr(snail_ID, cov = GD)) + (1|Date),
                         data = InvData, data2 = list(GD = GT_cov),
                         family = binomial(link = "logit"),
                         iter = Iter, chains = Chain, cores = Chain)
@@ -217,14 +227,14 @@ if(Habitat == "hab.only"){
         if(Inv == "LGC6.1.2b"){
                 # RS|BS|MSS LGC6.1/2b
                 mod <- brm(Inv | trials(LGC6.1.2b_trials) ~ sex + adult +
-                                PC1 + PC2 + PC3 + (1|gr(snail_ID, cov = GD)),
+                                PC1 + PC2 + PC3 + (1|gr(snail_ID, cov = GD)) + (1|Date),
                         data = InvData, data2 = list(GD = GT_cov),
                         family = binomial(link = "logit"),
                         iter = Iter, chains = Chain, cores = Chain)
         } else {
                 # RS|BS|MSS all other inversions
                 mod <- brm(Inv | trials(2) ~ sex + adult +
-                                PC1 + PC2 + PC3 + (1|gr(snail_ID, cov = GD)),
+                                PC1 + PC2 + PC3 + (1|gr(snail_ID, cov = GD)) + (1|Date),
                         data = InvData, data2 = list(GD = GT_cov),
                         family = binomial(link = "logit"),
                         iter = Iter, chains = Chain, cores = Chain)
@@ -232,4 +242,4 @@ if(Habitat == "hab.only"){
 }
 
 mod <- add_criterion(mod, criterion = "loo")
-save(mod, file = paste0(PATH, "brms_results/brms_fit.", Inv, "_", Habitat))
+save(mod, file = paste0(PATH, "brms_results/brms_fit.", Inv, "_", Habitat, "_v2"))
