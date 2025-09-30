@@ -49,7 +49,7 @@ Env <- Env[order(Env$ID),]
 rm(RS,BS,MSS)
 
 ### Sampling date from field notes
-FN <- read.csv(paste0(DIR, "Data/KT_fieldnotes.v2.csv"))[,c("Site", "Date")]
+FN <- read.csv(paste0(PATH, "KT_fieldnotes.v2.csv"))[,c("Site", "Date")]
 FN$Date <- as.Date(FN$Date, format = "%d/%m/%y") # Reformate as a date.time vector
 
 ### Genotypes
@@ -121,8 +121,8 @@ InvData[InvData$sex == "J", "sex"] <- "F"
 InvData$adult <- ifelse(InvData$adult, "adult", "juvenile")
 
 
-### 4: Add shellLength to 'Pheno'
-InvData <- right_join(InvData, SL[,c("snailID", "shellLength")], by = c("snail_ID", "snailID"))
+### 4: Add sampling date
+Pheno <- merge(Pheno, FN, by = "Site")
 
 
 ### 5: Get genetic covaraince from SNP genotypes
