@@ -39,6 +39,10 @@ Diss <- read.csv(paste0(PATH, "KT_dissection_log.csv"))
 SL <- read.csv(paste0(PATH, "KT_ShellShaper_parameters.v2.csv"))
 SL$snailID <- substr(SL$snailID,1,6)
 
+### Sampling date from field notes
+FN <- read.csv(paste0(PATH, "KT_fieldnotes.v2.csv"))[,c("Site", "Date")]
+FN$Date <- as.Date(FN$Date, format = "%d/%m/%y") # Reformate as a date.time vector
+
 ### Genotypes
 GT <- read.csv(paste0(PATH, "Koster_SNP_imputed_20221031.csv"), header = TRUE)
 GT <- GT[grep("KT", GT$snail), ] # Filter to just Koster data
@@ -91,7 +95,11 @@ Pheno$adult <- ifelse(Pheno$adult, "adult", "juvenile")
 Pheno <- right_join(Pheno, SL[,c("snailID", "shellLength")], by = c("snail_ID" = "snailID"))
 
 
-### 4: Add inversion frequencies
+### 4: Add sampling date
+Pheno <- merge(Pheno, FN, by = "Site")
+
+
+### 5: Add inversion frequencies
 # Filter to just snails that are in the SNP data
 Pheno <- Pheno[Pheno$snail_ID %in% GT_inv$snail,]
 # Filter the genotypes
@@ -101,7 +109,7 @@ GT_snp <- GT_snp[Pheno$snail_ID %in% rownames(GT_snp),]
 PhenoDat <- inner_join(Pheno, GT_inv, by = c("snail_ID" = "snail"))
 
 
-### 5: Get genetic covaraince from SNP genotypes
+### 6: Get genetic covaraince from SNP genotypes
 
 # Filter to snails in Phenotypic data
 GT_snp <- GT_snp[PhenoDat$snail_ID,]
@@ -121,8 +129,8 @@ diag(GT_cov) <- diag(GT_cov) + min(GT_cov)/100
 #### C: select key parameters ####
 
 ### Rename the phenotype of interest - this is needed to automate the scripts
-colnames(PhenoDat)[which(colnames(PhenoDat) == Trait)] <- "Pheno"
-colnames(PhenoDat)[which(colnames(PhenoDat) == Inversion)] <- "Inv"
+#colnames(PhenoDat)[which(colnames(PhenoDat) == Trait)] <- "Pheno"
+#colnames(PhenoDat)[which(colnames(PhenoDat) == Inversion)] <- "Inv"
 
 
 
@@ -130,7 +138,7 @@ colnames(PhenoDat)[which(colnames(PhenoDat) == Inversion)] <- "Inv"
 
 ### 1: Null model
 
-mod_null <- brm(Pheno ~ sex + adult + (1|gr(snail_ID, cov = GD)),
+mod_null <- brm(Pheno ~ sex + adult + (1|gr(snail_ID, cov = GD) + (1|Date)),
                    data = PhenoDat, data2 = list(GD = GT_cov),
                    iter = Iter, chains = Chain, cores = Chain)
 mod_null <- add_criterion(mod_null, criterion = "loo")
@@ -143,7 +151,7 @@ save(mod_null, file = paste0(PATH, "brms_results/brms_fit.", Trait, "_", Inversi
 mod <- brm(Pheno ~ sex + adult + LGC1.1 + LGC1.2 + LGC2.1 + LGC4.1 + LGC6.1.2 + LGC7.1 +
                         LGC7.2 + LGC9.1 + LGC10.1 + LGC10.2 + LGC11.1 + LGC12.1 + LGC12.2 +
                         LGC12.3 + LGC12.4 + LGC14.1 + LGC14.3 + LGC17.1 +
-                        (1|gr(snail_ID, cov = GD)),
+                        (1|gr(snail_ID, cov = GD) + (1|Date)),
                    data = PhenoDat, data2 = list(GD = GT_cov),
                    iter = Iter, chains = Chain, cores = Chain)
 
