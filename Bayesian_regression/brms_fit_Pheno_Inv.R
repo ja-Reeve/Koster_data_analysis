@@ -96,7 +96,7 @@ Pheno <- right_join(Pheno, SL[,c("snailID", "shellLength")], by = c("snail_ID" =
 
 
 ### 4: Add sampling date
-Pheno <- merge(Pheno, FN, by = "Site")
+Pheno <- right_join(Pheno, FN, by = c("site" = "Site"))
 
 
 ### 5: Add inversion frequencies
@@ -138,7 +138,7 @@ diag(GT_cov) <- diag(GT_cov) + min(GT_cov)/100
 
 ### 1: Null model
 
-mod_null <- brm(Pheno ~ sex + adult + (1|gr(snail_ID, cov = GD) + (1|Date)),
+mod_null <- brm(Pheno ~ sex + adult + (1|gr(snail_ID, cov = GD)) + (1|Date),
                    data = PhenoDat, data2 = list(GD = GT_cov),
                    iter = Iter, chains = Chain, cores = Chain)
 mod_null <- add_criterion(mod_null, criterion = "loo")
@@ -151,7 +151,7 @@ save(mod_null, file = paste0(PATH, "brms_results/brms_fit.", Trait, "_", Inversi
 mod <- brm(Pheno ~ sex + adult + LGC1.1 + LGC1.2 + LGC2.1 + LGC4.1 + LGC6.1.2 + LGC7.1 +
                         LGC7.2 + LGC9.1 + LGC10.1 + LGC10.2 + LGC11.1 + LGC12.1 + LGC12.2 +
                         LGC12.3 + LGC12.4 + LGC14.1 + LGC14.3 + LGC17.1 +
-                        (1|gr(snail_ID, cov = GD) + (1|Date)),
+                        (1|gr(snail_ID, cov = GD)) + (1|Date),
                    data = PhenoDat, data2 = list(GD = GT_cov),
                    iter = Iter, chains = Chain, cores = Chain)
 
