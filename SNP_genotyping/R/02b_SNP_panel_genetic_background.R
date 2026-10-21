@@ -23,10 +23,10 @@ buffer <- 2 # Buffer around putative breakpoints (cM)
 
 ### Access data
 # Linkage map (crab map)
-LMap <- read.table("/Users/james/Documents/Inversion_detection/Map_filtrated.txt", header = TRUE)
+LMap <- read.table("/file/path/Map_filtered.txt", header = TRUE)
 LMap$LG <- paste0("LG", LMap$LG)
 # Inversion breakpoints
-InvPos <- read.csv("/Users/james/Dropbox (Personal)/PhD/Inversion_positions_on_old_map.csv", header = T)
+InvPos <- read.csv("/file/path/Inversion_positions_on_old_map.csv", header = T)
 
 ### A: Filter out inversions from linkage map ####
 # Add contig column to LMap
