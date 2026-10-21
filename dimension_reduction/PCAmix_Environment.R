@@ -1,6 +1,6 @@
-############# Perform PCA on Envrionmental data ######################
+############# Perform PCA on Environmental data ######################
 ### This script performs a simple principle component analysis on
-### envrionmental measruements from 200 Littorina saxatilis sampling 
+### environmental measurements from 200 Littorina saxatilis sampling 
 ### sites around Tjärnö, Sweden that were collected in the summer of 2020.
 ### These measurement come from drone photos taking over each site
 ### James Reeve - University of Gothenburg
@@ -10,9 +10,9 @@
 ### Fieldnotes
 #   i. "site" = name of sampling site
 #   ii. "Site_name" = name of location or island
-#   iii. "Lat_bottom" = lattitude at the bottom of the transect [ignored]
+#   iii. "Lat_bottom" = latitude at the bottom of the transect [ignored]
 #   iv. "Long_bottom" = longitude at the bottom of the transect, and a character in the Harry Potter series [ignored]
-#   v. "Lat_top" = lattiude at the top of the transect [ignored]
+#   v. "Lat_top" = latitude at the top of the transect [ignored]
 #   vi. "Long_top" = longitude at the top of the transect [ignored]
 #   vii. "Date" = date of collection (DD/MM/YYYY)
 #   viii. "Time" = time of collection (Swedish time - GMT+1 & GMT+2 in Summer) [ignored]
@@ -62,11 +62,17 @@
 #   14/03/2023: drop GZW and transect height due to correlation with other variables
 #               and remove exposure notes, due to strong influence on PCAmix
 #   17/03/2023: select PCs to keep using the package PCAtest()
+#   24/09/2025: Clean up code and added broken stick model to scree plot
 
 ### Preparation ####
 rm(list = ls())
 dev.off()
 options(stringsAsFactors = FALSE)
+if(Sys.info()['sysname'] == "Windows") {
+  setwd("C:/Users/jalre")
+} else {
+  setwd("/Users/james/")
+}
 
 ### Pacakges
 library(tidyverse)
@@ -77,17 +83,18 @@ library(PCAmixdata)
 #devtools::install_github("arleyc/PCAtest")
 library(PCAtest)
 
-### Access data
-# Input filepath
-PATH <- "/input/dir/"
-# Field notes for each site - after adding sea level data
-FB_Site <- read.csv(paste0(PATH, "KT_fieldnotes.v2.csv"))
-# Drone photo measurements
-DPh <- read.csv(paste0(PATH, "KT_drone_photos_v2.csv"))
-# GIS data - Per Bergström
-GisD <- read.csv(paste0(PATH, "KT_GIS_data_v2.csv"))
 
-#### A: Format and merge data ####
+#### A: Access and wrangle data ####
+
+PATH <- "/file/path/"
+
+### Access data
+# Field notes for each site - after adding sea level data
+FB_Site <- read.csv(paste0(PATH, "Environmental_data/KT_fieldnotes.v2.csv"))
+# Drone photo measurements
+DPh <- read.csv(paste0(PATH, "Environmental_data/KT_drone_photos_v2.csv"))
+# GIS data - Per Bergström
+GisD <- read.csv(paste0(PATH, "Environmental_data/KT_GIS_data_v2.csv"))
 
 ### Remove unused variables
 FB_Site <- FB_Site[,c(1,7,14:20,24)]
@@ -151,6 +158,7 @@ BS <- BS[complete.cases(BS),]
 MSS <- MSS[complete.cases(MSS),]
 
 
+
 #### B: Investigate data ####
 
 ### B1: Investigate categorical data
@@ -179,26 +187,25 @@ p1 <- ggplot(Env)+
   theme_bw()+
   theme(axis.title.y = element_blank())
 
-p2 <- cat.plot(Env$Exposure_notes, "Exposure categories")
-p3 <- cat.plot(Env$Fucus, title = "Fucus present")
-p4 <- cat.plot(Env$Ascophyllum, title = "Ascophyllum present")
-p5 <- cat.plot(Env$Barnacles, title = "Barnacles present") 
-p6 <- cat.plot(Env$Boulders_rocks_stones, title = "Microhabitat")
-p7 <- cat.plot(Env$HI, title = "Human infrastructure")
+p2 <- cat.plot(Env$Fucus, title = "Fucus present")
+p3 <- cat.plot(Env$Ascophyllum, title = "Ascophyllum present")
+p4 <- cat.plot(Env$Barnacles, title = "Barnacles present") 
+p5 <- cat.plot(Env$Boulders_rocks_stones, title = "Microhabitat")
+p6 <- cat.plot(Env$HI, title = "Human infrastructure")
 
-ggarrange(p1,p2,p3,p4,p5,p6,p7, nrow = 2, ncol = 4, 
+ggarrange(p1,p2,p3,p4,p5,p6, nrow = 2, ncol = 3, 
           common.legend = TRUE, legend = "bottom")
 
 
-#############  Alternative plot of catagorical variables
+###  Alternative plot of categorical variables
 tmp <- Env %>% select(Habitat, Ascophyllum,
                       Barnacles, HI, Boulders_rocks_stones) %>%
-  melt(id.vars = "Habitat")
+  gather("variable", "score", -Habitat) %>%
+  group_by(Habitat, variable) %>% 
+  count(score)
 
-tmp %>% group_by(Habitat, variable) %>% 
-  count(value) %>%
-  ggplot()+
-  geom_bar(aes(x = variable, y = n, alpha = value, 
+ggplot(tmp)+
+  geom_bar(aes(x = variable, y = n, alpha = score, 
                fill = Habitat, col = Habitat),
            stat = "identity", position = "dodge", show.legend = FALSE)+
   facet_wrap(vars(Habitat), strip.position = "top", nrow = 3, ncol = 1)+
@@ -247,17 +254,19 @@ p3 <- cont.plot(Env$slope, title = "Shore angle (radians)")
 p4 <- cont.plot(Env$FP, title = "Fucus patchiness")
 p5 <- cont.plot(Env$HTD, title = "Habitat transition distance (m)")
 p6 <- cont.plot(Env$GS, title = "Boulder numbers")
-p7 <- cont.plot(Env$RF, title = "Number of rock fisures")
+p7 <- cont.plot(Env$RF, title = "Number of rock fisures") + scale_fill_manual(values = c("#ea9999"))
 p8 <- cont.plot(Env$Adj.FW, title = "FW (m)")
-p9 <- cont.plot(Env$Adj.BZW, title = "BZW (m)")
-p10 <- cont.plot(Env$Adj.TZW, title = "TZW (m)")
+p9 <- cont.plot(Env$Adj.BZW, title = "BZW (m)") + scale_fill_manual(values = c("#a2c4c9", "#ea9999"))
+p10 <- cont.plot(Env$Adj.TZW, title = "TZW (m)") + scale_fill_manual(values = c("#b4a7d6"))
 p11 <- cont.plot(Env$Adj.LVD, title = "LVD (m)")
 
 ggarrange(p1,p2,p3,p4,p5,p6,p7,p8,p9,p10,p11, ncol = 6, nrow = 2,
           common.legend = TRUE, legend = "bottom")
 
 
-#### C: Correlations ####
+#### B3: Correlations ####
+### This section will generate multiple plots to see the two-way correlations between environmental variables.
+### I advise running it line by line.
 
 ### 2-way correlation plots plots
 scat.plots <- function(x, y, data, title.x, title.y){
@@ -269,104 +278,104 @@ scat.plots <- function(x, y, data, title.x, title.y){
 }
 
 ### Rocky shore correlations ####
-scat.plots(log10(RS$Exposure_FETCH), RS$sin_shore, RS, 
-           expression(Log[10](fetch)), "Shore aspect", "Rocky shore")
-scat.plots(log10(RS$Exposure_FETCH), RS$Transect_height, RS, 
-           expression(Log[10](fetch)), "Transect height (m)", "Rocky shore")
+scat.plots(log10(RS$Exposure_FETCH), RS$sin_aspect, RS, 
+           expression(Log[10](fetch)), "Shore aspect")
+scat.plots(log10(RS$Exposure_FETCH), RS$Shore_length, RS, 
+           expression(Log[10](fetch)), "Shore length (m)")
 scat.plots(log10(RS$Exposure_FETCH), RS$slope, RS, 
-           expression(Log[10](fetch)), "Transect slope (radians)", "Rocky shore")
+           expression(Log[10](fetch)), "Transect slope (radians)")
 scat.plots(log10(RS$Exposure_FETCH), RS$HTD, RS, 
-           expression(Log[10](fetch)), "Habitat transition distance (m)", "Rocky shore")
+           expression(Log[10](fetch)), "Habitat transition distance (m)")
 scat.plots(log10(RS$Exposure_FETCH), RS$FP, RS, 
-           expression(Log[10](fetch)), "Fucus patchiness (%)", "Rocky shore")
+           expression(Log[10](fetch)), "Fucus patchiness (%)")
 scat.plots(log10(RS$Exposure_FETCH), RS$RF, RS, 
-           expression(Log[10](fetch)), "Number of rock fissures", "Rocky shore")
+           expression(Log[10](fetch)), "Number of rock fissures")
 scat.plots(log10(RS$Exposure_FETCH), RS$Adj.FW, RS, 
-           expression(Log[10](fetch)), "Fucus belt width (m)", "Rocky shore")
+           expression(Log[10](fetch)), "Fucus belt width (m)")
 scat.plots(log10(RS$Exposure_FETCH), RS$Adj.BZW, RS, 
-           expression(Log[10](fetch)), "Black zone width (m)", "Rocky shore")
+           expression(Log[10](fetch)), "Black zone width (m)")
 scat.plots(log10(RS$Exposure_FETCH), RS$Adj.LVD, RS, 
-           expression(Log[10](fetch)), "Land vegetation distance (m)", "Rocky shore")
+           expression(Log[10](fetch)), "Land vegetation distance (m)")
 
-scat.plots(RS$Aspect_shore, RS$Transect_height, RS, 
-           "Aspect shore", "Transect height (m)", "Rocky shore")
-scat.plots(RS$Aspect_shore, RS$slope, RS, 
-           "Aspect shore", "Transect slope (radians)", "Rocky shore")
-scat.plots(RS$Aspect_shore, RS$HTD, RS, 
-           "Aspect shore", "Habitat transition distance (m)", "Rocky shore")
-scat.plots(RS$Aspect_shore, RS$FP, RS, 
-           "Aspect shore", "Fucus patchiness (%)", "Rocky shore")
-scat.plots(RS$Aspect_shore, RS$RF, RS, 
-           "Aspect shore", "Number of rock fissures", "Rocky shore")
-scat.plots(RS$Aspect_shore, RS$Adj.FW, RS, 
-           "Aspect shore", "Fucus width (m)", "Rocky shore")
-scat.plots(RS$Aspect_shore, RS$Adj.BZW, RS, 
-           "Aspect shore", "Black zone width (m)", "Rocky shore")
-scat.plots(RS$Aspect_shore, RS$Adj.LVD, RS, 
-           "Aspect shore", "Land vegetation distance (m)", "Rocky shore")
+scat.plots(RS$sin_aspect, RS$Shore_length, RS, 
+           "Aspect shore", "Shore length (m)")
+scat.plots(RS$sin_aspect, RS$slope, RS, 
+           "Aspect shore", "Transect slope (radians)")
+scat.plots(RS$sin_aspect, RS$HTD, RS, 
+           "Aspect shore", "Habitat transition distance (m)")
+scat.plots(RS$sin_aspect, RS$FP, RS, 
+           "Aspect shore", "Fucus patchiness (%)")
+scat.plots(RS$sin_aspect, RS$RF, RS, 
+           "Aspect shore", "Number of rock fissures")
+scat.plots(RS$sin_aspect, RS$Adj.FW, RS, 
+           "Aspect shore", "Fucus width (m)")
+scat.plots(RS$sin_aspect, RS$Adj.BZW, RS, 
+           "Aspect shore", "Black zone width (m)")
+scat.plots(RS$sin_aspect, RS$Adj.LVD, RS, 
+           "Aspect shore", "Land vegetation distance (m)")
 
-scat.plots(RS$Transect_height, RS$slope, RS, 
-           "Transect height (m)", "Transect slope (radians)", "Rocky shore")
-scat.plots(RS$Transect_height, RS$HTD, RS, 
-           "Transect height (m)", "Habitat transition distance (m)", "Rocky shore")
-scat.plots(RS$Transect_height, RS$FP, RS, 
-           "Transect height (m)", "Fucus patchiness (%)", "Rocky shore")
-scat.plots(RS$Transect_height, RS$RF, RS, 
-           "Transect height (m)", "Number of rock fissures", "Rocky shore")
-scat.plots(RS$Transect_height, RS$Adj.FW, RS, 
-           "Transect height (m)", "Fucus width (m)", "Rocky shore")
-scat.plots(RS$Transect_height, RS$Adj.BZW, RS, 
-           "Transect height (m)", "Black zone width (m)", "Rocky shore")
-scat.plots(RS$Transect_height, RS$Adj.LVD, RS, 
-           "Transect height (m)", "Land vegetation distance (m)", "Rocky shore")
+scat.plots(RS$Shore_length, RS$slope, RS, 
+           "Shore length (m)", "Transect slope (radians)")
+scat.plots(RS$Shore_length, RS$HTD, RS, 
+           "Shore length (m)", "Habitat transition distance (m)")
+scat.plots(RS$Shore_length, RS$FP, RS, 
+           "Shore length (m)", "Fucus patchiness (%)")
+scat.plots(RS$Shore_length, RS$RF, RS, 
+           "Shore length (m)", "Number of rock fissures")
+scat.plots(RS$Shore_length, RS$Adj.FW, RS, 
+           "Shore length (m)", "Fucus width (m)")
+scat.plots(RS$Shore_length, RS$Adj.BZW, RS, 
+           "Shore length (m)", "Black zone width (m)")
+scat.plots(RS$Shore_length, RS$Adj.LVD, RS, 
+           "Shore length (m)", "Land vegetation distance (m)")
 
 scat.plots(RS$slope, RS$HTD, RS, 
-           "Transect slope (radians)", "Habitat transition distance (m)", "Rocky shore")
+           "Transect slope (radians)", "Habitat transition distance (m)")
 scat.plots(RS$slope, RS$FP, RS, 
-           "Transect slope (radians)", "Fucus patchiness (%)", "Rocky shore")
+           "Transect slope (radians)", "Fucus patchiness (%)")
 scat.plots(RS$slope, RS$RF, RS, 
-           "Transect slope (radians)", "Number of rock fissures", "Rocky shore")
+           "Transect slope (radians)", "Number of rock fissures")
 scat.plots(RS$slope, RS$Adj.FW, RS, 
-           "Transect slope (radians)", "Fucus width (m)", "Rocky shore")
+           "Transect slope (radians)", "Fucus width (m)")
 scat.plots(RS$slope, RS$Adj.BZW, RS, 
-           "Transect slope (radians)", "Black zone width (m)", "Rocky shore")
+           "Transect slope (radians)", "Black zone width (m)")
 scat.plots(RS$slope, RS$Adj.LVD, RS, 
-           "Transect slope (radians)", "Land vegetation distance (m)", "Rocky shore")
+           "Transect slope (radians)", "Land vegetation distance (m)")
 
 scat.plots(RS$HTD, RS$FP, RS, 
-           "Habitat transition distance (m)", "Fucus patchiness (%)", "Rocky shore")
+           "Habitat transition distance (m)", "Fucus patchiness (%)")
 scat.plots(RS$HTD, RS$RF, RS, 
-           "Habitat transition distance (m)", "Number of rock fissures", "Rocky shore")
+           "Habitat transition distance (m)", "Number of rock fissures")
 scat.plots(RS$HTD, RS$Adj.FW, RS, 
-           "Habitat transition distance (m)", "Fucus width (m)", "Rocky shore")
+           "Habitat transition distance (m)", "Fucus width (m)")
 scat.plots(RS$HTD, RS$Adj.BZW, RS, 
-           "Habitat transition distance (m)", "Black zone width (m)", "Rocky shore")
+           "Habitat transition distance (m)", "Black zone width (m)")
 scat.plots(RS$HTD, RS$Adj.LVD, RS, 
-           "Habitat transition distance (m)", "Land vegetation distance (m)", "Rocky shore")
+           "Habitat transition distance (m)", "Land vegetation distance (m)")
 
 scat.plots(RS$FP,RS$RF, RS, 
-           "Fucus patchiness (%)", "Number of rock fissures", "Rocky shore")
+           "Fucus patchiness (%)", "Number of rock fissures")
 scat.plots(RS$FP, RS$Adj.FW, RS, 
-           "Fucus patchiness (%)", "Fucus width (m)", "Rocky shore")
+           "Fucus patchiness (%)", "Fucus width (m)")
 scat.plots(RS$FP, RS$Adj.BZW, RS, 
-           "Fucus patchiness (%)", "Black zone width (m)", "Rocky shore")
+           "Fucus patchiness (%)", "Black zone width (m)")
 scat.plots(RS$FP, RS$Adj.LVD, RS, 
-           "Fucus patchiness (%)", "Land vegetation distance (m)", "Rocky shore")
+           "Fucus patchiness (%)", "Land vegetation distance (m)")
 
 scat.plots(RS$RF, RS$Adj.FW, RS, 
-           "Number of rock fissures", "Fucus width (m)", "Rocky shore")
+           "Number of rock fissures", "Fucus width (m)")
 scat.plots(RS$RF, RS$Adj.BZW, RS, 
-           "Number of rock fissures", "Black zone width (m)", "Rocky shore")
+           "Number of rock fissures", "Black zone width (m)")
 scat.plots(RS$RF, RS$Adj.LVD, RS, 
-           "Number of rock fissures", "Land vegetation distance (m)", "Rocky shore")
+           "Number of rock fissures", "Land vegetation distance (m)")
 
 scat.plots(RS$Adj.FW, RS$Adj.BZW, RS, 
-           "Fucus width (m)", "Black zone width (m)", "Rocky shore")
+           "Fucus width (m)", "Black zone width (m)")
 scat.plots(RS$Adj.FW, RS$Adj.LVD, RS, 
-           "Fucus width (m)", "Land vegetation distance (m)", "Rocky shore")
+           "Fucus width (m)", "Land vegetation distance (m)")
 
 scat.plots(RS$Adj.FW, RS$Adj.LVD, RS, 
-           "Black zone width (m)", "Land vegetation distance (m)", "Rocky shore")
+           "Black zone width (m)", "Land vegetation distance (m)")
 
 
 rscor <- ggcorrplot(cor(RS %>% select(where(is.numeric))), type = "upper",
@@ -375,104 +384,104 @@ rscor <- ggcorrplot(cor(RS %>% select(where(is.numeric))), type = "upper",
 
 
 ### Boulder shore correlations ####
-scat.plots(log10(BS$Exposure_FETCH), BS$Aspect_shore, BS, 
-           expression(Log[10](fetch)), "Shore aspect", "Boulder shore")
-scat.plots(log10(BS$Exposure_FETCH), BS$Transect_height, BS, 
-           expression(Log[10](fetch)), "Transect height (m)", "Boulder shore")
+scat.plots(log10(BS$Exposure_FETCH), BS$sin_aspect, BS, 
+           expression(Log[10](fetch)), "Shore aspect")
+scat.plots(log10(BS$Exposure_FETCH), BS$Shore_length, BS, 
+           expression(Log[10](fetch)), "Shore length (m)")
 scat.plots(log10(BS$Exposure_FETCH), BS$slope, BS, 
-           expression(Log[10](fetch)), "Transect slope (radians)", "Boulder shore")
+           expression(Log[10](fetch)), "Transect slope (radians)")
 scat.plots(log10(BS$Exposure_FETCH), BS$HTD, BS, 
-           expression(Log[10](fetch)), "Habitat transition distance (m)", "Boulder shore")
+           expression(Log[10](fetch)), "Habitat transition distance (m)")
 scat.plots(log10(BS$Exposure_FETCH), BS$FP, BS, 
-           expression(Log[10](fetch)), "Fucus patchiness (%)", "Boulder shore")
+           expression(Log[10](fetch)), "Fucus patchiness (%)")
 scat.plots(log10(BS$Exposure_FETCH), BS$GS, BS, 
-           expression(Log[10](fetch)), "Number of boulders", "Boulder shore")
+           expression(Log[10](fetch)), "Number of boulders")
 scat.plots(log10(BS$Exposure_FETCH), BS$Adj.FW, BS, 
-           expression(Log[10](fetch)), "Fucus belt width (m)", "Boulder shore")
+           expression(Log[10](fetch)), "Fucus belt width (m)")
 scat.plots(log10(BS$Exposure_FETCH), BS$Adj.BZW, BS, 
-           expression(Log[10](fetch)), "Black zone width (m)", "Boulder shore")
+           expression(Log[10](fetch)), "Black zone width (m)")
 scat.plots(log10(BS$Exposure_FETCH), BS$Adj.LVD, BS, 
-           expression(Log[10](fetch)), "Land vegetation distance (m)", "Boulder shore")
+           expression(Log[10](fetch)), "Land vegetation distance (m)")
 
-scat.plots(BS$Aspect_shore, BS$Transect_height, BS, 
-           "Aspect shore", "Transect height (m)", "Boulder shore")
-scat.plots(BS$Aspect_shore, BS$slope, BS, 
-           "Aspect shore", "Transect slope (radians)", "Boulder shore")
-scat.plots(BS$Aspect_shore, BS$HTD, BS, 
-           "Aspect shore", "Habitat transition distance (m)", "Boulder shore")
-scat.plots(BS$Aspect_shore, BS$FP, BS, 
-           "Aspect shore", "Fucus patchiness (%)", "Boulder shore")
-scat.plots(BS$Aspect_shore, BS$GS, BS, 
-           "Aspect shore", "Number of boulders", "Boulder shore")
-scat.plots(BS$Aspect_shore, BS$Adj.FW, BS, 
-           "Aspect shore", "Fucus width (m)", "Boulder shore")
-scat.plots(BS$Aspect_shore, BS$Adj.BZW, BS, 
-           "Aspect shore", "Black zone width (m)", "Boulder shore")
-scat.plots(BS$Aspect_shore, BS$Adj.LVD, BS, 
-           "Aspect shore", "Land vegetation distance (m)", "Boulder shore")
+scat.plots(BS$sin_aspect, BS$Shore_length, BS, 
+           "Aspect shore", "Shore length (m)")
+scat.plots(BS$sin_aspect, BS$slope, BS, 
+           "Aspect shore", "Transect slope (radians)")
+scat.plots(BS$sin_aspect, BS$HTD, BS, 
+           "Aspect shore", "Habitat transition distance (m)")
+scat.plots(BS$sin_aspect, BS$FP, BS, 
+           "Aspect shore", "Fucus patchiness (%)")
+scat.plots(BS$sin_aspect, BS$GS, BS, 
+           "Aspect shore", "Number of boulders")
+scat.plots(BS$sin_aspect, BS$Adj.FW, BS, 
+           "Aspect shore", "Fucus width (m)")
+scat.plots(BS$sin_aspect, BS$Adj.BZW, BS, 
+           "Aspect shore", "Black zone width (m)")
+scat.plots(BS$sin_aspect, BS$Adj.LVD, BS, 
+           "Aspect shore", "Land vegetation distance (m)")
 
-scat.plots(BS$Transect_height, BS$slope, BS, 
-           "Transect height (m)", "Transect slope (radians)", "Boulder shore")
-scat.plots(BS$Transect_height, BS$HTD, BS, 
-           "Transect height (m)", "Habitat transition distance (m)", "Boulder shore")
-scat.plots(BS$Transect_height, BS$FP, BS, 
-           "Transect height (m)", "Fucus patchiness (%)", "Boulder shore")
-scat.plots(BS$Transect_height, BS$GS, BS, 
-           "Transect height (m)", "Number of boulders", "Boulder shore")
-scat.plots(BS$Transect_height, BS$Adj.FW, BS, 
-           "Transect height (m)", "Fucus width (m)", "Boulder shore")
-scat.plots(BS$Transect_height, BS$Adj.BZW, BS, 
-           "Transect height (m)", "Black zone width (m)", "Boulder shore")
-scat.plots(BS$Transect_height, BS$Adj.LVD, BS, 
-           "Transect height (m)", "Land vegetation distance (m)", "Boulder shore")
+scat.plots(BS$Shore_length, BS$slope, BS, 
+           "Shore length (m)", "Transect slope (radians)")
+scat.plots(BS$Shore_length, BS$HTD, BS, 
+           "Shore length (m)", "Habitat transition distance (m)")
+scat.plots(BS$Shore_length, BS$FP, BS, 
+           "Shore length (m)", "Fucus patchiness (%)")
+scat.plots(BS$Shore_length, BS$GS, BS, 
+           "Shore length (m)", "Number of boulders")
+scat.plots(BS$Shore_length, BS$Adj.FW, BS, 
+           "Shore length (m)", "Fucus width (m)")
+scat.plots(BS$Shore_length, BS$Adj.BZW, BS, 
+           "Shore length (m)", "Black zone width (m)")
+scat.plots(BS$Shore_length, BS$Adj.LVD, BS, 
+           "Shore length (m)", "Land vegetation distance (m)")
 
 scat.plots(BS$slope, BS$HTD, BS, 
-           "Transect slope (radians)", "Habitat transition distance (m)", "Boulder shore")
+           "Transect slope (radians)", "Habitat transition distance (m)")
 scat.plots(BS$slope, BS$FP, BS, 
-           "Transect slope (radians)", "Fucus patchiness (%)", "Boulder shore")
+           "Transect slope (radians)", "Fucus patchiness (%)")
 scat.plots(BS$slope, BS$GS, BS, 
-           "Transect slope (radians)", "Number of boulders", "Boulder shore")
+           "Transect slope (radians)", "Number of boulders")
 scat.plots(BS$slope, BS$Adj.FW, BS, 
-           "Transect slope (radians)", "Fucus width (m)", "Boulder shore")
+           "Transect slope (radians)", "Fucus width (m)")
 scat.plots(BS$slope, BS$Adj.BZW, BS, 
-           "Transect slope (radians)", "Black zone width (m)", "Boulder shore")
+           "Transect slope (radians)", "Black zone width (m)")
 scat.plots(BS$slope, BS$Adj.LVD, BS, 
-           "Transect slope (radians)", "Land vegetation distance (m)", "Boulder shore")
+           "Transect slope (radians)", "Land vegetation distance (m)")
 
 scat.plots(BS$HTD, BS$FP, BS, 
-           "Habitat transition distance (m)", "Fucus patchiness (%)", "Boulder shore")
+           "Habitat transition distance (m)", "Fucus patchiness (%)")
 scat.plots(BS$HTD, BS$GS, BS, 
-           "Habitat transition distance (m)", "Number of boulders", "Boulder shore")
+           "Habitat transition distance (m)", "Number of boulders")
 scat.plots(BS$HTD, BS$Adj.FW, BS, 
-           "Habitat transition distance (m)", "Fucus width (m)", "Boulder shore")
+           "Habitat transition distance (m)", "Fucus width (m)")
 scat.plots(BS$HTD, BS$Adj.BZW, BS, 
-           "Habitat transition distance (m)", "Black zone width (m)", "Boulder shore")
+           "Habitat transition distance (m)", "Black zone width (m)")
 scat.plots(BS$HTD, BS$Adj.LVD, BS, 
-           "Habitat transition distance (m)", "Land vegetation distance (m)", "Boulder shore")
+           "Habitat transition distance (m)", "Land vegetation distance (m)")
 
 scat.plots(BS$FP, BS$GS, BS, 
-           "Fucus patchiness (%)", "Number of boulders", "Boulder shore")
+           "Fucus patchiness (%)", "Number of boulders")
 scat.plots(BS$FP, BS$Adj.FW, BS, 
-           "Fucus patchiness (%)", "Fucus width (m)", "Boulder shore")
+           "Fucus patchiness (%)", "Fucus width (m)")
 scat.plots(BS$FP, BS$Adj.BZW, BS, 
-           "Fucus patchiness (%)", "Black zone width (m)", "Boulder shore")
+           "Fucus patchiness (%)", "Black zone width (m)")
 scat.plots(BS$FP, BS$Adj.LVD, BS, 
-           "Fucus patchiness (%)", "Land vegetation distance (m)", "Boulder shore")
+           "Fucus patchiness (%)", "Land vegetation distance (m)")
 
 scat.plots(BS$GS, BS$Adj.FW, BS, 
-           "Number of boulders", "Fucus width (m)", "Boulder shore")
+           "Number of boulders", "Fucus width (m)")
 scat.plots(BS$GS, BS$Adj.BZW, BS, 
-           "Number of boulder", "Black zone width (m)", "Boulder shore")
+           "Number of boulder", "Black zone width (m)")
 scat.plots(BS$GS, BS$Adj.LVD, BS, 
-           "Number of boulder", "Land vegetation distance (m)", "Boulder shore")
+           "Number of boulder", "Land vegetation distance (m)")
 
 scat.plots(BS$Adj.FW, BS$Adj.BZW, BS, 
-           "Fucus width (m)", "Black zone width (m)", "Boulder shore")
+           "Fucus width (m)", "Black zone width (m)")
 scat.plots(BS$Adj.FW, BS$Adj.LVD, BS, 
-           "Fucus width (m)", "Land vegetation distance (m)", "Boulder shore")
+           "Fucus width (m)", "Land vegetation distance (m)")
 
 scat.plots(BS$Adj.FW, BS$Adj.LVD, BS, 
-           "Black zone width (m)", "Land vegetation distance (m)", "Boulder shore")
+           "Black zone width (m)", "Land vegetation distance (m)")
 
 
 bscor <- ggcorrplot(cor(BS %>% select(where(is.numeric))), type = "upper",
@@ -481,89 +490,91 @@ bscor <- ggcorrplot(cor(BS %>% select(where(is.numeric))), type = "upper",
 
 
 ### Muddy-sandy shore correlations ####
-scat.plots(log10(MSS$Exposure_FETCH), MSS$Aspect_shore, MSS, 
-           expression(Log[10](fetch)), "Shore aspect", "Muddy and sandy shore")
-scat.plots(log10(MSS$Exposure_FETCH), MSS$Transect_height, MSS, 
-           expression(Log[10](fetch)), "Transect height (m)", "Muddy and sandy shore")
+scat.plots(log10(MSS$Exposure_FETCH), MSS$sin_aspect, MSS, 
+           expression(Log[10](fetch)), "Shore aspect")
+scat.plots(log10(MSS$Exposure_FETCH), MSS$Shore_length, MSS, 
+           expression(Log[10](fetch)), "Shore length (m)")
 scat.plots(log10(MSS$Exposure_FETCH), MSS$slope, MSS, 
-           expression(Log[10](fetch)), "Transect slope (radians)", "Muddy and sandy shore")
+           expression(Log[10](fetch)), "Transect slope (radians)")
 scat.plots(log10(MSS$Exposure_FETCH), MSS$HTD, MSS, 
-           expression(Log[10](fetch)), "Habitat transition distance (m)", "Muddy and sandy shore")
+           expression(Log[10](fetch)), "Habitat transition distance (m)")
 scat.plots(log10(MSS$Exposure_FETCH), MSS$FP, MSS, 
-           expression(Log[10](fetch)), "Fucus patchiness (%)", "Muddy and sandy shore")
+           expression(Log[10](fetch)), "Fucus patchiness (%)")
 scat.plots(log10(MSS$Exposure_FETCH), MSS$Adj.FW, MSS, 
-           expression(Log[10](fetch)), "Fucus belt width (m)", "Muddy and sandy shore")
+           expression(Log[10](fetch)), "Fucus belt width (m)")
 scat.plots(log10(MSS$Exposure_FETCH), MSS$Adj.TZW, MSS, 
-           expression(Log[10](fetch)), "Tide zone width (m)", "Muddy and sandy shore")
+           expression(Log[10](fetch)), "Tide zone width (m)")
 scat.plots(log10(MSS$Exposure_FETCH), MSS$Adj.LVD, MSS, 
-           expression(Log[10](fetch)), "Land vegetation distance (m)", "Muddy and sandy shore")
+           expression(Log[10](fetch)), "Land vegetation distance (m)")
 
-scat.plots(MSS$Aspect_shore, MSS$Transect_height, MSS, 
-           "Shore aspect", "Transect height (m)", "Muddy and sandy shore")
-scat.plots(MSS$Aspect_shore, MSS$slope, MSS, 
-           "Shore aspect", "Transect slope (radians)", "Muddy and sandy shore")
-scat.plots(MSS$Aspect_shore, MSS$HTD, MSS, 
-           "Shore aspect", "Habitat transition distance (m)", "Muddy and sandy shore")
-scat.plots(MSS$Aspect_shore, MSS$FP, MSS, 
-           "Shore aspect", "Fucus patchiness (%)", "Muddy and sandy shore")
-scat.plots(MSS$Aspect_shore, MSS$Adj.FW, MSS, 
-           "Shore aspect", "Fucus belt width (m)", "Muddy and sandy shore")
-scat.plots(MSS$Aspect_shore, MSS$Adj.TZW, MSS, 
-           "Shore aspect", "Tide zone width (m)", "Muddy and sandy shore")
-scat.plots(MSS$Aspect_shore, MSS$Adj.LVD, MSS, 
-           "Shore aspect", "Land vegetation distance (m)", "Muddy and sandy shore")
+scat.plots(MSS$sin_aspect, MSS$Shore_length, MSS, 
+           "Shore aspect", "Shore length (m)")
+scat.plots(MSS$sin_aspect, MSS$slope, MSS, 
+           "Shore aspect", "Transect slope (radians)")
+scat.plots(MSS$sin_aspect, MSS$HTD, MSS, 
+           "Shore aspect", "Habitat transition distance (m)")
+scat.plots(MSS$sin_aspect, MSS$FP, MSS, 
+           "Shore aspect", "Fucus patchiness (%)")
+scat.plots(MSS$sin_aspect, MSS$Adj.FW, MSS, 
+           "Shore aspect", "Fucus belt width (m)")
+scat.plots(MSS$sin_aspect, MSS$Adj.TZW, MSS, 
+           "Shore aspect", "Tide zone width (m)")
+scat.plots(MSS$sin_aspect, MSS$Adj.LVD, MSS, 
+           "Shore aspect", "Land vegetation distance (m)")
 
-scat.plots(MSS$Transect_height, MSS$slope, MSS, 
-           "Transect height (m)", "Transect slope (radians)", "Muddy and sandy shore")
-scat.plots(MSS$Transect_height, MSS$HTD, MSS, 
-           "Transect height (m)", "Habitat transition distance (m)", "Muddy and sandy shore")
-scat.plots(MSS$Transect_height, MSS$FP, MSS, 
-           "Transect height (m)", "Fucus patchiness (%)", "Muddy and sandy shore")
-scat.plots(MSS$Transect_height, MSS$Adj.FW, MSS, 
-           "Transect height (m)", "Fucus belt width (m)", "Muddy and sandy shore")
-scat.plots(MSS$Transect_height, MSS$Adj.TZW, MSS, 
-           "Transect height (m)", "Tide zone width (m)", "Muddy and sandy shore")
-scat.plots(MSS$Transect_height, MSS$Adj.LVD, MSS, 
-           "Transect height (m)", "Land vegetation distance (m)", "Muddy and sandy shore")
+scat.plots(MSS$Shore_length, MSS$slope, MSS, 
+           "Shore length (m)", "Transect slope (radians)")
+scat.plots(MSS$Shore_length, MSS$HTD, MSS, 
+           "Shore length (m)", "Habitat transition distance (m)")
+scat.plots(MSS$Shore_length, MSS$FP, MSS, 
+           "Shore length (m)", "Fucus patchiness (%)")
+scat.plots(MSS$Shore_length, MSS$Adj.FW, MSS, 
+           "Shore length (m)", "Fucus belt width (m)")
+scat.plots(MSS$Shore_length, MSS$Adj.TZW, MSS, 
+           "Shore length (m)", "Tide zone width (m)")
+scat.plots(MSS$Shore_length, MSS$Adj.LVD, MSS, 
+           "Shore length (m)", "Land vegetation distance (m)")
 
 scat.plots(MSS$slope, MSS$HTD, MSS, 
-           "Transect slope (radians)", "Habitat transition distance (m)", "Muddy and sandy shore")
+           "Transect slope (radians)", "Habitat transition distance (m)")
 scat.plots(MSS$slope, MSS$FP, MSS, 
-           "Transect slope (radians)", "Fucus patchiness (%)", "Muddy and sandy shore")
+           "Transect slope (radians)", "Fucus patchiness (%)")
 scat.plots(MSS$slope, MSS$Adj.FW, MSS, 
-           "Transect slope (radians)", "Fucus belt width (m)", "Muddy and sandy shore")
+           "Transect slope (radians)", "Fucus belt width (m)")
 scat.plots(MSS$slope, MSS$Adj.TZW, MSS, 
-           "Transect slope (radians)", "Tide zone width (m)", "Muddy and sandy shore")
+           "Transect slope (radians)", "Tide zone width (m)")
 scat.plots(MSS$slope, MSS$Adj.LVD, MSS, 
-           "Transect slope (radians)", "Land vegetation distance (m)", "Muddy and sandy shore")
+           "Transect slope (radians)", "Land vegetation distance (m)")
 
 scat.plots(MSS$HTD, MSS$FP, MSS, 
-           "Habitat transition distance (m)", "Fucus patchiness (%)", "Muddy and sandy shore")
+           "Habitat transition distance (m)", "Fucus patchiness (%)")
 scat.plots(MSS$HTD, MSS$Adj.FW, MSS, 
-           "Habitat transition distance (m)", "Fucus belt width (m)", "Muddy and sandy shore")
+           "Habitat transition distance (m)", "Fucus belt width (m)")
 scat.plots(MSS$HTD, MSS$Adj.TZW, MSS, 
-           "Habitat transition distance (m)", "Tide zone width (m)", "Muddy and sandy shore")
+           "Habitat transition distance (m)", "Tide zone width (m)")
 scat.plots(MSS$HTD, MSS$Adj.LVD, MSS, 
-           "Habitat transition distance (m)", "Land vegetation distance (m)", "Muddy and sandy shore")
+           "Habitat transition distance (m)", "Land vegetation distance (m)")
 
 scat.plots(MSS$FP, MSS$Adj.FW, MSS, 
-           "Fucus patchiness (%)", "Fucus belt width (m)", "Muddy and sandy shore")
+           "Fucus patchiness (%)", "Fucus belt width (m)")
 scat.plots(MSS$FP, MSS$Adj.TZW, MSS, 
-           "Fucus patchiness (%)", "Tide zone width (m)", "Muddy and sandy shore")
+           "Fucus patchiness (%)", "Tide zone width (m)")
 scat.plots(MSS$FP, MSS$Adj.LVD, MSS, 
-           "Fucus patchiness (%)", "Land vegetation distance (m)", "Muddy and sandy shore")
+           "Fucus patchiness (%)", "Land vegetation distance (m)")
 
 scat.plots(MSS$Adj.FW, MSS$Adj.TZW, MSS, 
-           "Fucus belt width (m)", "Tide zone width (m)", "Muddy and sandy shore")
+           "Fucus belt width (m)", "Tide zone width (m)")
 scat.plots(MSS$Adj.FW, MSS$Adj.LVD, MSS, 
-           "Fucus belt width (m)", "Land vegetation distance (m)", "Muddy and sandy shore")
+           "Fucus belt width (m)", "Land vegetation distance (m)")
 
 scat.plots(MSS$Adj.TZW, MSS$Adj.LVD, MSS, 
-           "Tide zone width (m)", "Land vegetation distance (m)", "Muddy and sandy shore")
+           "Tide zone width (m)", "Land vegetation distance (m)")
 
 msscor <- ggcorrplot(cor(MSS %>% select(where(is.numeric))), type = "upper",
            p.mat = cor_pmat(MSS %>% select(where(is.numeric))),
           title = "Muddy-sandy shores")
+
+ggarrange(rscor, bscor, msscor, nrow = 1, common.legend = TRUE)
 
 
 #### D: Run PCAmix ####
@@ -595,6 +606,23 @@ RS_PCA <- ShorePCA(RS)
 BS_PCA <- ShorePCA(BS)
 MSS_PCA <- ShorePCA(MSS)
 
+### Format as dataframe
+# Eigenvalues
+RS_PCA_dat <- as.data.frame(RS_PCA$ind$coord)
+BS_PCA_dat <- as.data.frame(BS_PCA$ind$coord)
+MSS_PCA_dat <- as.data.frame(MSS_PCA$ind$coord)
+
+# Variance explained
+RS_Pvar <- as.data.frame(RS_PCA$eig)
+RS_Pvar$dimension <- rownames(RS_PCA$eig)
+
+BS_Pvar <- as.data.frame(BS_PCA$eig)
+BS_Pvar$dimension <- rownames(BS_PCA$eig)
+
+MSS_Pvar <- as.data.frame(MSS_PCA$eig)
+MSS_Pvar$dimension <- rownames(MSS_PCA$eig)
+
+
 
 #### E: Plot the results ####
 # Default PCA plots
@@ -607,51 +635,103 @@ plot(RS_PCA, axes = c(1,2), choice = "sqload", coloring.var = T, leg=TRUE,
 ### Custom PCA plots with ggplot() ####
 ### Copy to clipboard: 1000x360 (w x h)
 # Rocky shores
-ggplot(as.data.frame(RS_PCA$ind$coord))+
-  geom_point(aes(`dim 1`, `dim 2`, colour = FB_Site[FB_Site$Site %in% RS$Site, "Exposure_notes"]), 
-             show.legend = FALSE)+
+RS_loads <- RS_PCA$sqload
+rownames(RS_loads) <- gsub("Adj.", "", rownames(RS_loads))
+
+ggplot(RS_PCA_dat)+
+  geom_point(aes(`dim 1`, `dim 2`, colour = log(GisD[GisD$Site %in% RS$Site, "Exposure_FETCH"])), 
+             show.legend = TRUE, size = 3)+
+  geom_segment(data = RS_loads, 
+               aes(x = 0, y = 0, xend = `dim 1`*10, yend = `dim 2`*10), 
+               arrow = arrow(length = unit(1/2, "picas")),
+               color = "grey30")+
+  geom_label(data = RS_loads, aes(x = `dim 1`*10, y = `dim 2`*10, label = rownames(RS_loads)),
+             size = 2.6)+
   labs(x = paste0("Dim 1 (", round(RS_PCA$eig[1,"Proportion"], 2), "%)"), 
        y = paste0("Dim 2 (", round(RS_PCA$eig[2,"Proportion"], 2), "%)"), 
-       title = "Rocky shores")+
-  scale_colour_manual(values = c("#7EB6E0", "#EBB76A", "#025EA3", "#A36302"))+
+       title = "Rocky shores", 
+       colour = expression(Log[e]~"(Fetch)"))+
+  scale_colour_gradient(low = "#d3eaeaff", high = "#008080ff", 
+                        limits = c(1.5, 13.5), breaks = seq(1.5, 13.5, 4))+
   theme_bw()+
   theme(axis.title = element_text(size = 14),
         axis.text = element_text(size = 11),
-        plot.title = element_text(size = 16, face = "bold"))
+        plot.title = element_text(size = 16, face = "bold"),
+        legend.position = "bottom",
+        legend.margin = margin(l = 0.4, unit = "npc"))
 
 # Boulder shores
-ggplot(as.data.frame(BS_PCA$ind$coord))+
-  geom_point(aes(`dim 1`, `dim 2`, colour = FB_Site[FB_Site$Site %in% BS$Site, "Exposure_notes"]),
-             show.legend = FALSE)+
+BS_loads <- BS_PCA$sqload
+rownames(BS_loads) <- gsub("Adj.", "", rownames(BS_loads))
+
+ggplot(BS_PCA_dat)+
+  geom_point(aes(`dim 1`, `dim 2`, colour = log(GisD[GisD$Site %in% BS$Site, "Exposure_FETCH"])), 
+             show.legend = TRUE, size = 3)+
+  geom_segment(data = BS_loads, 
+               aes(x = 0, y = 0, xend = `dim 1`*10, yend = `dim 2`*10), 
+               arrow = arrow(length = unit(1/2, "picas")),
+               color = "grey30")+
+  geom_label(data = BS_loads, aes(x = `dim 1`*10, y = `dim 2`*10, label = rownames(BS_loads)),
+             size = 2.6)+
   labs(x = paste0("Dim 1 (", round(BS_PCA$eig[1,"Proportion"], 2), "%)"), 
        y = paste0("Dim 2 (", round(BS_PCA$eig[2,"Proportion"], 2), "%)"), 
-       title = "Boulder fields")+
-  scale_colour_manual(values = c("#7EB6E0", "#EBB76A", "#A36302"))+
+       title = "Boulder fields", 
+       colour = expression(Log[e]~"(Fetch)"))+
+  scale_colour_gradient(low = "#d3eaeaff", high = "#008080ff", 
+                         limits = c(1.5, 13.5), breaks = seq(1.5, 13.5, 4))+
   theme_bw()+
   theme(axis.title = element_text(size = 14),
         axis.text = element_text(size = 11),
-        plot.title = element_text(size = 16, face = "bold"))
+        plot.title = element_text(size = 16, face = "bold"),
+        legend.position = "bottom",
+        legend.margin = margin(l = 0.4, unit = "npc"))
 
 # Muddy and sandy shores
-ggplot(as.data.frame(MSS_PCA$ind$coord))+
-  geom_point(aes(`dim 1`, `dim 2`, colour = FB_Site[FB_Site$Site %in% MSS$Site, "Exposure_notes"]),
-             show.legend = FALSE)+
+MSS_loads <- MSS_PCA$sqload
+rownames(MSS_loads) <- gsub("Adj.", "", rownames(MSS_loads))
+
+ggplot(MSS_PCA_dat)+
+  geom_point(aes(`dim 1`, `dim 2`, colour = log(GisD[GisD$Site %in% MSS$Site, "Exposure_FETCH"])), 
+             show.legend = TRUE, size = 3)+
+  geom_segment(data = MSS_loads, 
+               aes(x = 0, y = 0, xend = `dim 1`*8, yend = `dim 2`*8), 
+               arrow = arrow(length = unit(1/2, "picas")),
+               color = "grey30")+
+  geom_label(data = MSS_loads, aes(x = `dim 1`*8, y = `dim 2`*8, label = rownames(MSS_loads)),
+             size = 2.6)+
   labs(x = paste0("Dim 1 (", round(MSS_PCA$eig[1,"Proportion"], 2), "%)"), 
-       y = paste0("Dim 2 (", round(MSS_PCA$eig[2,"Proportion"], 2), "%)"),
-       title = "Muddy-sandy shores")+
-  scale_colour_manual(values = c("#EBB76A", "#A36302"))+
+       y = paste0("Dim 2 (", round(MSS_PCA$eig[2,"Proportion"], 2), "%)"), 
+       title = "Muddy-Sandy shores", 
+       colour = expression(Log[e]~"(Fetch)"))+
+  scale_colour_gradient(low = "#d3eaeaff", high = "#008080ff", 
+                        limits = c(1.5, 13.5), breaks = seq(1.5, 13.5, 4))+
   theme_bw()+
   theme(axis.title = element_text(size = 14),
         axis.text = element_text(size = 11),
-        plot.title = element_text(size = 16, face = "bold"))
+        plot.title = element_text(size = 16, face = "bold"),
+        legend.position = "bottom",
+        legend.margin = margin(l = 0.4, unit = "npc"))
 
 
-### Scree plot of variance explained ####
+
+### F: Scree plot of variance explained ####
 ### Copy to clipboard: 500x500 (w x h)
+
+### Create broken stick estimate
+RS_Pvar$BSexp <- sapply(1:nrow(RS_Pvar), function(i){ 
+  sum(1/i:nrow(RS_Pvar))/nrow(RS_Pvar) * 100})
+BS_Pvar$BSexp <- sapply(1:nrow(BS_Pvar), function(i){ 
+  sum(1/i:nrow(BS_Pvar))/nrow(BS_Pvar) * 100})
+MSS_Pvar$BSexp <- sapply(1:nrow(MSS_Pvar), function(i){ 
+  sum(1/i:nrow(MSS_Pvar))/nrow(MSS_Pvar) * 100})
+
+
 # Rocky shores
-ggplot(as.data.frame(RS_PCA$eig), aes(x = row.names(RS_PCA$eig), y = Proportion))+
-  geom_line(aes(group = ""))+
-  geom_point()+
+ggplot(RS_Pvar, aes(x = dimension))+
+  geom_line(aes(y = Proportion, group = ""), col = "black")+
+  geom_point(aes(y = Proportion), col = "black")+
+  geom_point(aes(y = BSexp), col = "grey80")+
+  geom_line(aes(y = BSexp, group = 1), col = "grey80")+
   labs(x = "Principal component", y = "Varaince explained (%)")+#, title = "Rocky shores")+
   ylim(c(0, 30))+
   scale_x_discrete(limits = paste0("dim ", 1:nrow(RS_PCA$eig)))+
@@ -661,10 +741,12 @@ ggplot(as.data.frame(RS_PCA$eig), aes(x = row.names(RS_PCA$eig), y = Proportion)
         axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
         plot.title = element_text(size = 16, face = "bold"))
 
-# Boulder fields
-ggplot(as.data.frame(BS_PCA$eig), aes(x = row.names(BS_PCA$eig), y = Proportion))+
-  geom_line(aes(group = ""))+
-  geom_point()+
+# Boulder shores
+ggplot(BS_Pvar, aes(x = dimension))+
+  geom_line(aes(y = Proportion, group = ""), col = "black")+
+  geom_point(aes(y = Proportion), col = "black")+
+  geom_point(aes(y = BSexp), col = "grey80")+
+  geom_line(aes(y = BSexp, group = 1), col = "grey80")+
   labs(x = "Principal component", y = "Varaince explained (%)")+#, title = "Boulder fields")+
   ylim(c(0, 30))+
   scale_x_discrete(limits = paste0("dim ", 1:nrow(BS_PCA$eig)))+
@@ -675,9 +757,11 @@ ggplot(as.data.frame(BS_PCA$eig), aes(x = row.names(BS_PCA$eig), y = Proportion)
         plot.title = element_text(size = 16, face = "bold"))
 
 # Muddy and sandy shores
-ggplot(as.data.frame(MSS_PCA$eig), aes(x = row.names(MSS_PCA$eig), y = Proportion))+
-  geom_line(aes(group = ""))+
-  geom_point()+
+ggplot(MSS_Pvar, aes(x = dimension))+
+  geom_line(aes(y = Proportion, group = ""), col = "black")+
+  geom_point(aes(y = Proportion), col = "black")+
+  geom_point(aes(y = BSexp), col = "grey80")+
+  geom_line(aes(y = BSexp, group = 1), col = "grey80")+
   labs(x = "Principal component", y = "Varaince explained (%)")+#, title = "Muddy & Sandy shores")+
   ylim(c(0, 30))+
   scale_x_discrete(limits = paste0("dim ", 1:nrow(MSS_PCA$eig)))+
@@ -688,7 +772,7 @@ ggplot(as.data.frame(MSS_PCA$eig), aes(x = row.names(MSS_PCA$eig), y = Proportio
         plot.title = element_text(size = 16, face = "bold"))
 
 
-### Histogram of first 5 dimensions of PCAmix ####
+### G: Histogram of first 5 dimensions of PCAmix ####
 ### Copy to clipboard: 360 x 500 (w x h)
 PCA.hist <- function(data, principal.compent, binwidth = 0.2,
                      highlight.colour = "grey50"){
@@ -709,65 +793,68 @@ PCA.hist <- function(data, principal.compent, binwidth = 0.2,
 }
 
 # Rocky shore
-p1a <- PCA.hist(as.data.frame(RS_PCA$ind$coord), principal.compent = 1, binwidth = 0.4,
+p1a <- PCA.hist(RS_PCA_dat, principal.compent = 1, binwidth = 0.4,
          highlight.colour = "#888EEB")
-p1b <- PCA.hist(as.data.frame(RS_PCA$ind$coord), principal.compent = 2, binwidth = 0.4,
+p1b <- PCA.hist(RS_PCA_dat, principal.compent = 2, binwidth = 0.4,
          highlight.colour = "#74EBA3")
-p1c <- PCA.hist(as.data.frame(RS_PCA$ind$coord), principal.compent = 3, binwidth = 0.4,
+p1c <- PCA.hist(RS_PCA_dat, principal.compent = 3, binwidth = 0.4,
          highlight.colour = "#D48CE6")
-p1d <- PCA.hist(as.data.frame(RS_PCA$ind$coord), principal.compent = 4, binwidth = 0.3,
+p1d <- PCA.hist(RS_PCA_dat, principal.compent = 4, binwidth = 0.3,
          highlight.colour = "#E6D38A")
-p1e <- PCA.hist(as.data.frame(RS_PCA$ind$coord), principal.compent = 5, binwidth = 0.3,
+p1e <- PCA.hist(RS_PCA_dat, principal.compent = 5, binwidth = 0.3,
          highlight.colour = "#EB817A")
 ggarrange(p1a, p1b, p1c, p1d, p1e, ncol = 1)
 
-# Boulder fields
-p1a <- PCA.hist(as.data.frame(BS_PCA$ind$coord), principal.compent = 1, binwidth = 0.4,
+# Boulder shores
+p1a <- PCA.hist(BS_PCA_dat, principal.compent = 1, binwidth = 0.4,
                 highlight.colour = "#888EEB")
-p1b <- PCA.hist(as.data.frame(BS_PCA$ind$coord), principal.compent = 2, binwidth = 0.4,
+p1b <- PCA.hist(BS_PCA_dat, principal.compent = 2, binwidth = 0.4,
                 highlight.colour = "#74EBA3")
-p1c <- PCA.hist(as.data.frame(BS_PCA$ind$coord), principal.compent = 3, binwidth = 0.4,
+p1c <- PCA.hist(BS_PCA_dat, principal.compent = 3, binwidth = 0.4,
                 highlight.colour = "#D48CE6")
-p1d <- PCA.hist(as.data.frame(BS_PCA$ind$coord), principal.compent = 4, binwidth = 0.3,
+p1d <- PCA.hist(BS_PCA_dat, principal.compent = 4, binwidth = 0.3,
                 highlight.colour = "#E6D38A")
-p1e <- PCA.hist(as.data.frame(BS_PCA$ind$coord), principal.compent = 5, binwidth = 0.3,
+p1e <- PCA.hist(BS_PCA_dat, principal.compent = 5, binwidth = 0.3,
                 highlight.colour = "#EB817A")
 ggarrange(p1a, p1b, p1c, p1d, p1e, ncol = 1)
 
 # Muddy and sandy shores
-p1a <- PCA.hist(as.data.frame(MSS_PCA$ind$coord), principal.compent = 1, binwidth = 0.4,
+p1a <- PCA.hist(MSS_PCA_dat, principal.compent = 1, binwidth = 0.4,
                 highlight.colour = "#888EEB")
-p1b <- PCA.hist(as.data.frame(MSS_PCA$ind$coord), principal.compent = 2, binwidth = 0.4,
+p1b <- PCA.hist(MSS_PCA_dat, principal.compent = 2, binwidth = 0.4,
                 highlight.colour = "#74EBA3")
-p1c <- PCA.hist(as.data.frame(MSS_PCA$ind$coord), principal.compent = 3, binwidth = 0.4,
+p1c <- PCA.hist(MSS_PCA_dat, principal.compent = 3, binwidth = 0.4,
                 highlight.colour = "#D48CE6")
-p1d <- PCA.hist(as.data.frame(MSS_PCA$ind$coord), principal.compent = 4, binwidth = 0.3,
+p1d <- PCA.hist(MSS_PCA_dat, principal.compent = 4, binwidth = 0.3,
                 highlight.colour = "#E6D38A")
-p1e <- PCA.hist(as.data.frame(MSS_PCA$ind$coord), principal.compent = 5, binwidth = 0.3,
+p1e <- PCA.hist(MSS_PCA_dat, principal.compent = 5, binwidth = 0.3,
                 highlight.colour = "#EB817A")
 ggarrange(p1a, p1b, p1c, p1d, p1e, ncol = 1)
 
 
-### Plot top 5 dimensions in large grid ####
+
+### H: Plot top 5 dimensions in large grid ####
 ### Copy to clipboard: 500 x 500 (w x h)
 PCA.scat <- function(data, x, y){
   # Select exposure data to colour plot by
-  if(identical(data, RS_PCA$ind$coord)){
-    Exposure <-  FB_Site[FB_Site$Site %in% RS$Site, "Exposure_notes"]
-    colPal <- c("#7EB6E0", "#EBB76A", "#025EA3", "#A36302")}
-  if(identical(data, BS_PCA$ind$coord)){
-    Exposure <-  FB_Site[FB_Site$Site %in% BS$Site, "Exposure_notes"]
-    colPal <- c("#7EB6E0", "#EBB76A", "#A36302")}
-  if(identical(data, MSS_PCA$ind$coord)){
-    Exposure <-  FB_Site[FB_Site$Site %in% MSS$Site, "Exposure_notes"]
-    colPal <- c("#EBB76A", "#A36302")}
+  #if(identical(data, RS_PCA$ind$coord)){
+    #Exposure <-  FB_Site[FB_Site$Site %in% RS$Site, "Exposure_notes"]
+    #colPal <- c("#7EB6E0", "#EBB76A", "#025EA3", "#A36302")}
+  #if(identical(data, BS_PCA$ind$coord)){
+    #Exposure <-  FB_Site[FB_Site$Site %in% BS$Site, "Exposure_notes"]
+    #colPal <- c("#7EB6E0", "#EBB76A", "#A36302")}
+  #if(identical(data, MSS_PCA$ind$coord)){
+    #Exposure <-  FB_Site[FB_Site$Site %in% MSS$Site, "Exposure_notes"]
+    #colPal <- c("#EBB76A", "#A36302")}
   
   ggplot(as.data.frame(data))+
     geom_point(aes(x = data[, x], y = data[, y],
-                   colour = Exposure), show.legend = FALSE)+
+                   colour = log(GisD[GisD$Site %in% rownames(data), "Exposure_FETCH"])), 
+               show.legend = FALSE)+
     scale_x_continuous(breaks = 0)+
     scale_y_continuous(breaks = 0)+
-    scale_colour_manual(values = colPal)+
+    #scale_colour_manual(values = colPal)+
+    scale_colour_gradient(low = "#d3eaeaff", high = "#008080ff")+
     labs(x = paste("Dim", x), y = paste("Dim", y))+
     theme_classic()+
     theme(panel.grid.major = element_line(colour = "lightgrey"),
@@ -793,7 +880,7 @@ ggarrange(ggarrange(p2a, p2b, p2c, p2d, nrow = 1),
           ggarrange(p2_, p2_, p2_, p2j, nrow = 1),
           nrow = 4, ncol = 1)
 
-# Boulder fields
+# Boulder shores
 p2a <- PCA.scat(BS_PCA$ind$coord, 1, 2)
 p2b <- PCA.scat(BS_PCA$ind$coord, 1, 3)
 p2c <- PCA.scat(BS_PCA$ind$coord, 1, 4)
@@ -831,22 +918,29 @@ ggarrange(ggarrange(p2a, p2b, p2c, p2d, nrow = 1),
           ggarrange(p2_, p2_, p2_, p2j, nrow = 1),
           nrow = 4, ncol = 1)
 
-### Plot variable loadings for first 5 dimensions ####
+
+
+### I: Plot variable loadings for first 5 dimensions ####
 ### Copy to clipboard: 1000 x 250 (w x h)
 PCA.load <- function(data, principal.component, highlight.colour = "grey50"){
   tmp <- as.data.frame(data$sqload)
   tmp$var <- rownames(tmp)
   
   ggplot(tmp)+
-    geom_point(aes(x = tmp[, principal.component], y = var), 
-               pch = '>', size = 3, col = highlight.colour)+
-    geom_col(aes(x = tmp[, principal.component], y = var), 
-             width = 0.05, col = highlight.colour)+
+    #geom_point(aes(x = tmp[, principal.component], y = var), 
+     #          pch = '>', size = 3, col = highlight.colour)+
+    #geom_col(aes(x = tmp[, principal.component], y = var), 
+     #        width = 0.05, col = highlight.colour)+
+    geom_vline(xintercept = 0, colour = "grey50", linewidth = 0.1)+
+    geom_segment(aes(x = 0, y = var, xend = tmp[, principal.component], yend = var), 
+                 arrow = arrow(length = unit(0.8, "picas")),
+                 color = highlight.colour, linewidth = 1.2)+
     labs(x = paste("Dim", principal.component))+
     lims(x = c(0,1))+
-    theme_bw()+
+    theme_classic()+
     theme(axis.title.y = element_blank())
 }
+
 
 # Rocky shores
 p3a <- PCA.load(RS_PCA, 1, highlight.colour = "#888EEB")
@@ -855,16 +949,18 @@ p3c <- PCA.load(RS_PCA, 3, highlight.colour = "#D48CE6")+theme(axis.text.y = ele
 p3d <- PCA.load(RS_PCA, 4, highlight.colour = "#E6D38A")+theme(axis.text.y = element_blank())
 p3e <- PCA.load(RS_PCA, 5, highlight.colour = "#EB817A")+theme(axis.text.y = element_blank())
 
-ggarrange(p3a, p3b, p3c, p3d, p3e, nrow = 1, widths = c(1.5,1,1,1,1))
+ggarrange(p3a, p3b, p3c, #p3d, p3e, 
+          nrow = 1, widths = c(1.5,1,1))
 
-# Boulder fields
+# Boulder shores
 p3a <- PCA.load(BS_PCA, 1, highlight.colour = "#888EEB")
 p3b <- PCA.load(BS_PCA, 2, highlight.colour = "#74EBA3")+theme(axis.text.y = element_blank())
 p3c <- PCA.load(BS_PCA, 3, highlight.colour = "#D48CE6")+theme(axis.text.y = element_blank())
 p3d <- PCA.load(BS_PCA, 4, highlight.colour = "#E6D38A")+theme(axis.text.y = element_blank())
 p3e <- PCA.load(BS_PCA, 5, highlight.colour = "#EB817A")+theme(axis.text.y = element_blank())
 
-ggarrange(p3a, p3b, p3c, p3d, p3e, nrow = 1, widths = c(1.5,1,1,1,1))
+ggarrange(p3a, p3b, p3c, #p3d, p3e, 
+          nrow = 1, widths = c(1.5,1,1))
 
 # Muddy and sandy shores
 p3a <- PCA.load(MSS_PCA, 1, highlight.colour = "#888EEB")
@@ -873,70 +969,46 @@ p3c <- PCA.load(MSS_PCA, 3, highlight.colour = "#D48CE6")+theme(axis.text.y = el
 p3d <- PCA.load(MSS_PCA, 4, highlight.colour = "#E6D38A")+theme(axis.text.y = element_blank())
 p3e <- PCA.load(MSS_PCA, 5, highlight.colour = "#EB817A")+theme(axis.text.y = element_blank())
 
-ggarrange(p3a, p3b, p3c, p3d, p3e, nrow = 1, widths = c(1.5,1,1,1,1))
+ggarrange(p3a, p3b, p3c, #p3d, p3e, 
+          nrow = 1, widths = c(1.5,1,1))
 
 
-### F: Evaluate number of dimensions to save using broken stick model ####
+### F: Evaluate number of dimensions to save using PCAtest ####
 
-## Function to add broken stick model to scree plot
-broken.stick.plot <- function(data, title = ""){
-  Exp <- sapply(1:nrow(data), function(i){ sum(1/i:nrow(data))/nrow(data) * 100})
-  
-  ggplot(data, aes(x = as.integer(gsub(".* ", "", X))))+
-    geom_point(aes(y = Proportion), col = "black")+
-    geom_line(aes(y = Proportion, group = 1), col = "black")+
-    geom_point(aes(y = Exp), col = "grey80")+
-    geom_line(aes(y = Exp, group = 1), col = "grey80")+
-    labs(x = "Principal component", y = "Variance explained (%)",
-         title = title)+
-    theme_bw()
-}
+### Note: this package calculates statistics to evaluate observed PCA
+### against a null distribution of permutations. I am not focusing on the 
+### overall "significance" of the PCA, instead I am using this to look at
+### which dimensions explain more variation than expect by chance.
 
-broken.stick.plot(RS_PCA$eig, "Rocky shores")
-broken.stick.plot(BS_PCA$eig, "Boulder fields")
-broken.stick.plot(MSS_PCA$eig, "Muddy-sandy shores")
+## Rocky shores
+PCAtest(RS_PCA$Z)
 
 
-## Inspect hard cuts
-Hard.cut <- function(data, cut){
-  head(data[data$Cumulative > cut,], n = 1)$X
-}
-
-Hard.cut(RS_PCA$eig, 75)
-Hard.cut(RS_PCA$eig, 80)
-Hard.cut(RS_PCA$eig, 90)
-
-Hard.cut(BS_PCA$eig, 75)
-Hard.cut(BS_PCA$eig, 80)
-Hard.cut(BS_PCA$eig, 90)
-
-Hard.cut(MSS_PCA$eig, 75)
-Hard.cut(MSS_PCA$eig, 80)
-Hard.cut(MSS_PCA$eig, 90)
-
+#### Currently not working!!! I think this is a scalling problem with the 
+### package. I've made an error request on the GitHub.
 
 
 #### G: Save PCAmix results ####
 
 ### Saving principal components (top 5 dimensions)
-PATH.1 <- "/out/dir/PCAmix/principal_components/"
+PATH.1 <- "/output/dir/principal_components/"
 
-#write.csv(RS_PCA$ind$coord, paste0(PATH.1, "Env_RS_PC1-5.csv"), quote = FALSE)
-#write.csv(BS_PCA$ind$coord, paste0(PATH.1, "Env_BS_PC1-5.csv"), quote = FALSE)
-#write.csv(MSS_PCA$ind$coord, paste0(PATH.1, "Env_MSS_PC1-5.csv"), quote = FALSE)
+write.csv(RS_PCA$ind$coord, paste0(PATH.1, "Env_RS_PC1-5.csv"), quote = FALSE)
+write.csv(BS_PCA$ind$coord, paste0(PATH.1, "Env_BS_PC1-5.csv"), quote = FALSE)
+write.csv(MSS_PCA$ind$coord, paste0(PATH.1, "Env_MSS_PC1-5.csv"), quote = FALSE)
 
 ### Save eigenvalues and variance explained
-PATH.2 <- "/out/dir/PCAmix/eigenvalues/"
+PATH.2 <- "/output/dir/eigenvalues/"
 
-#write.csv(RS_PCA$eig, paste0(PATH.2, "Env_RS_eig.csv"), quote = FALSE)
-#write.csv(BS_PCA$eig, paste0(PATH.2, "Env_BS_eig.csv"), quote = FALSE)
-#write.csv(MSS_PCA$eig, paste0(PATH.2, "Env_MSS_eig.csv"), quote = FALSE)
+write.csv(RS_PCA$eig, paste0(PATH.2, "Env_RS_eig.csv"), quote = FALSE)
+write.csv(BS_PCA$eig, paste0(PATH.2, "Env_BS_eig.csv"), quote = FALSE)
+write.csv(MSS_PCA$eig, paste0(PATH.2, "Env_MSS_eig.csv"), quote = FALSE)
 
 
 
 #### H: Addendum: testing skew and modality of data ####
 ### Dim 1 in rocky shores looks to be bi-modal. While other dimensions look to be non-normally
-### distributed. These are investigated by looking at the skewness, kurtosis (tesing for normality), 
+### distributed. These are investigated by looking at the skewness, kurtosis (testing for normality), 
 ### and unimodality of the first three dimensions.
 
 ### Packages
@@ -970,14 +1042,14 @@ kurtosis(MSS_PCA$dim.2)
 kurtosis(MSS_PCA$dim.3)
 
 ### Hartigan's test for unimodality
-dip.test(RS_PCA$dim.1)
-dip.test(RS_PCA$dim.2)
-dip.test(RS_PCA$dim.3)
+dip.test(RS_PCA_dat$`dim 1`)
+dip.test(RS_PCA_dat$`dim 2`)
+dip.test(RS_PCA_dat$`dim 3`)
 
-dip.test(BS_PCA$dim.1)
-dip.test(BS_PCA$dim.2)
-dip.test(BS_PCA$dim.3)
+dip.test(BS_PCA_dat$`dim 1`)
+dip.test(BS_PCA_dat$`dim 2`)
+dip.test(BS_PCA_dat$`dim 3`)
 
-dip.test(MSS_PCA$dim.1)
-dip.test(MSS_PCA$dim.2)
-dip.test(MSS_PCA$dim.3)
+dip.test(MSS_PCA_dat$`dim 1`)
+dip.test(MSS_PCA_dat$`dim 2`)
+dip.test(MSS_PCA_dat$`dim 3`)
