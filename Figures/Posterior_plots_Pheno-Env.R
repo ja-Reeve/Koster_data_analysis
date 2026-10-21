@@ -1,6 +1,7 @@
 ################### Figure S8 - Posterior distributions Pheno~Env ####################
 ### Plot posterior distributions from brms model objects for the Pheno~Env models. Tile
-### plots are copies from Fig. 5 in the main text.
+### plots are copies from Fig. 5 in the main text. Among habitat models were used in
+### Fig. S8A. Other posterior distributions are in Fig. S9.
 
 ### James Reeve - DTU Aqua
 ### 2025-12-16
