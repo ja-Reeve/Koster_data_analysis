@@ -25,7 +25,7 @@ module load picard/2.23.4
 
 ### The script:  
 # 1. Filepaths:
-KT_DIR=/proj/snic2020-6-155
+KT_DIR=/file/path
 
 # 2. Set array flag to sample names:
 samplesheet=$KT_DIR/snailIDs.txt
