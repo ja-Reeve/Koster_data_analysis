@@ -24,7 +24,7 @@ module load bcftools/1.14
 
 ### The script:  
 # Filepath to data
-KTDIR=/proj/snic2020-6-155
+KTDIR=/file/path
 
 # Extract contig and position from BED file
 # This BED file was made with the R script 'SNP_panel_selection.R'
@@ -34,5 +34,8 @@ awk 'BEGIN {OFS = "\t"} {print $1,$3}' $KTDIR/Koster_SNP_panel_YYYY-MM-DD.bed > 
 # and extract CHROM, POS, REF & ALT
 vcftools --gzvcf $KTDIR/vcf/KT_LG${SLURM_ARRAY_TASK_ID}_filtered_MAF003.vcf.gz \
   --positions $TMPDIR/SNP_panel.bed --recode -c > $TMPDIR/KT_SNPpanel_LG${SLURM_ARRAY_TASK_ID}.vcf
+  
 bcftools query -f '%CHROM %POS %REF %ALT\n' $TMPDIR/KT_SNPpanel_LG${SLURM_ARRAY_TASK_ID}.vcf > \
   $KTDIR/KT_SNPpanel_RefAlt_LG${SLURM_ARRAY_TASK_ID}.txt
+
+rm $TMPDIR/KT_SNPpanel_LG${SLURM_ARRAY_TASK_ID}.vcf
