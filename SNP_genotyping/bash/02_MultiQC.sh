@@ -20,5 +20,5 @@ module load FastQC/0.11.9
 module load MultiQC/1.10
 
 ### Command
-fastqc --dir $TMPDIR -t 20 /proj/snic2020-6-155/trimmed_read/*.fastq.gz --outdir /proj/snic2020-6-155/fastqc
-multiqc /proj/snic2020-6-155/fastqc -o /proj/snic2020-6-155/MultiQC
+fastqc --dir $TMPDIR -t 20 /file/path/trimmed_read/*.fastq.gz --outdir /file/path/fastqc
+multiqc /file/path/fastqc -o /file/path/MultiQC
