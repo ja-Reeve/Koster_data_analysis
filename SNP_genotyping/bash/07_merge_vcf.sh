@@ -23,7 +23,7 @@ module load bcftools/1.12
 
 ### The script:
 # 1. Filepaths:
-VCF=/proj/snic2020-6-155/vcf
+VCF=/file/path
 
 # 2. Make list of vcfs
 ls $VCF/*filtered.MAF003.vcf.gz > $TMPDIR/vcf_list.txt
