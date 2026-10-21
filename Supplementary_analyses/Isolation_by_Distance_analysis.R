@@ -5,6 +5,7 @@
 
 ### James Reeve - University of Gothenburg
 ### 2024-02-02
+### Edit 2025-09-16: drop SNPs in LGC5.1 from genetic analysis
 
 ### Preparation
 rm(list = ls())
@@ -53,7 +54,7 @@ Env <- read.csv(paste0(PATH, "KT_fieldnotes.v2.csv"))
 
 
 ### 4: Map data
-tmp_shp <- vect("/path/to/map/data/coastline_line.shp")
+tmp_shp <- vect("/path/to/map/data/coastline_clipped.shp")
 # Subset to Kosterhavets
 KT_shp <- terra::crop(tmp_shp, ext(10.95, 11.16, 58.82, 58.93))
 rm(tmp_shp)
@@ -67,10 +68,10 @@ GT <- SNP[,c(1, grep("Contig", colnames(SNP)))]
 
 # Further sample 'GT' to just genetic background
 SNPs <- SNP_info %>% 
-  filter(inv == "background") %>%
-  summarise("SNP" = paste(CHROM, POS, sep = "_")) %>% 
-  filter(SNP != "Contig70288_47522") %>% # Removing SNP which contributed strongly to PCA
-  unlist()
+  filter(inv == "background") %>% # Only keep genetic background markers
+  filter(!(LG == 5 & between(mp, 15, 47))) %>% # Drop SNPs in LGC5.1 (LG5: 15 - 47 cM)
+  filter(!(str_detect(NAME, "Contig70288_47522"))) %>% # Finally, drop outlier which impacts PCA pattern
+  reframe("SNP" = paste(CHROM, POS, sep = "_"))
 GT <- GT[,SNPs]
 
 # Add rownames
@@ -88,10 +89,7 @@ GT2[GT2 == 2] <- "11"
 GT2[is.na(GT2)] <- "99"
 
 # Reorder by snail name
-GT2 <- GT2[order(GT2$snail),]
-
-# Drop 'snail' column
-GT2 <- GT2[,-1]
+GT2 <- GT2[order(rownames(GT2)),]
 
 
 ### 3: Convert into adgenet formats
@@ -124,12 +122,20 @@ tmp$Site <- substr(tmp$Snail, 1, 5)
 
 ggplot(tmp)+
   geom_point(aes(x = Axis1, y = Axis2), alpha = 0.4)+
-  annotate("text", x = 4.5, y = -3, size = 6, label = paste(Nsnp, "SNPs"))+
-  labs(x = paste0("PC1 (", Vexp.PC1, "%)"), y = paste0("PC2 (", Vexp.PC2, "%)") )+
-  theme_bw()+
-  theme(axis.title = element_text(size = 14), 
-        axis.text = element_text(size = 12))
+  labs(x = paste0("PC1 (", Vexp.PC1, "%)"),
+       y = paste0("PC2 (", Vexp.PC2, "%)"),
+       title = paste(Nsnp, "SNPs"))+
+  scale_x_continuous(breaks = 0)+
+  scale_y_continuous(breaks = 0)+
+  theme_void()+
+  theme(panel.grid.major = element_line(colour = "grey50", linewidth = 0.1),
+        axis.text = element_blank(),
+        axis.title.x = element_text(size = 16),
+        axis.title.y = element_text(size = 16, angle = 90),
+        plot.title = element_text(size = 18, face = "bold"))
+  
 # 600 x 450
+
 
 
 #### D: Mantel test for Isolation by Distance ####
@@ -138,7 +144,7 @@ ggplot(tmp)+
 ### test for the presence of isolation by distance.
 
 ### 1: Genetic distance matrix
-Dgen <- dist.genpop(genp, method = 2) # Method 2 = Edward's distance
+Dgen <- dist.genpop(genp, method = 2, diag = TRUE, upper = TRUE) # Method 2 = Edward's distance
 
 
 ### 2: Spatial distance matrix
@@ -151,47 +157,58 @@ Env2[Env2$Site == "KT148", "Long_bottom"] <- Env2[Env2$Site == "KT148", "Long_to
 Env2[Env2$Site == "KT148", "Lat_bottom"] <- Env2[Env2$Site == "KT148", "Lat_top"]
 
 # Spatial distances (km)
-Dspat <- distm(Env2[,c("Long_bottom","Lat_bottom")])/1000
+Dspat <- spDists(x = as.matrix(Env2[,c("Long_bottom", "Lat_bottom")]), longlat = TRUE)
+colnames(Dspat) <- Env2$Site
+rownames(Dspat) <- Env2$Site
 
 
 ### 3: Mantel test
-mantel.randtest(as.dist(Dspat), Dgen)
+mantel.randtest(as.dist(Dspat), as.dist(Dgen))
 
 
 ### 4: Convert matrices to a data frame
+## Custom function
+mat.long <- function(x){
+  tmp <- melt(x)
+  colnames(tmp) <- c("site.x", "site.y", "r")
+  # Drop autocorrelations
+  tmp <- tmp[tmp$site.x != tmp$site.y,]
+  
+  return(tmp)
+}
 
-# Turn genetic distance matrix to a data frame
-tmp <- Dgen %>% as.matrix() %>% melt()
-colnames(tmp) <- c("Site.x", "Site.y", "Dgen")
+refmt.Dspat <- mat.long(Dspat)
+refmt.Dgen <- mat.long(Dgen)
 
-# Convert spatial distances to a single vector
-Dspat.l <- melt(Dspat)$value
-# Add spatial distances to data frame
-tmp$Dspat <- Dspat.l
+### Merge together
+# Add a comparison flag between sites
+refmt.Dspat$comp <- paste(refmt.Dspat$site.x, refmt.Dspat$site.y, sep = "_")
+refmt.Dgen$comp <- paste(refmt.Dgen$site.x, refmt.Dgen$site.y, sep = "_")
 
-# Remove autocorrelations
-tmp <- tmp[tmp$Site.x != tmp$Site.y,]
+# The merger
+tmp <- merge(refmt.Dspat, refmt.Dgen[,c("r", "comp")], by = "comp")
+colnames(tmp)[4:5] <- c("SD", "GD")
 
 
-### 4: Plot comparison among matrices
-# Convert into densities using MASS
-#dens <- kde2d(tmp$Dspat, tmp$Dgen, n = 300)
+### 5: Plot comparison among matrices
 
 mod <- lm(tmp$Dgen ~ log(tmp$Dspat))
 # Distances > 2km
 tmp.2km <- tmp[tmp$Dspat > 2,]
-mod.2km <- lm(tmp.2km$Dgen ~ log(tmp.2km$Dspat))
+mod.2km <- lm(tmp.2km$GD ~ log(tmp.2km$SD))
 
-ggplot(tmp, aes(x = Dspat, y = Dgen))+ 
-  geom_point(size = 0.2, alpha = 0.4)+
-  geom_density_2d_filled(n = 300, alpha = 0.5, show.legend = FALSE)+ # Runs MASS:kde2d in ggplot
+ggplot(tmp, aes(x = SD, y = GD))+ 
+  geom_density_2d_filled(n = 300, alpha = 1.0, show.legend = FALSE, bins = 9)+ # Runs MASS:kde2d in ggplot
   scale_fill_brewer(palette = "Greens")+
+  geom_point(size = 0.2, alpha = 0.1)+
   geom_smooth(method = "lm", formula = y~log(x), colour = "red", linewidth = 0.4)+
   labs(x = "Spatial distances (km)", y = "Genetic distances (E)")+
+  scale_x_continuous(expand = c(0,0))+
+  scale_y_continuous(expand = c(0,0))+
   theme_classic()+
-  theme(axis.title = element_text(size = 14),
-        axis.text = element_text(size = 12))
-# 800 x 400
+  theme(axix.text = element_text(size = 14),
+        axis.title = element_text(size = 18))
+# 900 x 600
 
 
 
@@ -212,11 +229,17 @@ Spca <- spca(genp, Coords)
 Coords$Similarity <- Spca$li$`Axis 1`
   
 ggplot()+
-  geom_spatvector(data = KT_shp)+
+  geom_spatvector(data = KT_shp, colour = "grey70")+
   geom_point(data = Coords, aes(Long_bottom, Lat_bottom, fill = Similarity), size = 2, pch = 21)+
-  scale_fill_gradient(low = "#eff7f7ff", high = "#008080ff")+
+  scale_fill_gradient2(low = "navy", mid = "#ebffff", high = "firebrick", midpoint = 0)+
+  labs(fill = "sPC1")+
+  scale_x_continuous(expand = c(0,0))+
+  scale_y_continuous(expand = c(0,0))+
   theme_bw()+
   theme(axis.title = element_blank(),
+        axis.text = element_text(size = 16),
         legend.position = "bottom",
-        legend.key.width = unit(1.6, "cm"))
+        legend.key.width = unit(1.6, "cm"),
+        legend.text = element_text(size = 14),
+        legend.title = element_text(size = 14))
 # 450 x 450
