@@ -1,6 +1,7 @@
-################### Figure S8 - Posterior distributions Inv-Env ####################
+###################### Figures - Posterior distributions Inv-Env ####################
 ### Plot posterior distributions from brms model objects for the Inv-Env models. Tile
-### plots are copies from Fig. 5 in the main text.
+### plots are copies from Fig. 5 in the main text. Among habitat models were used in
+### Fig. S8D. Other posterior distributions are in Fig. S11.
 ### James Reeve - University of Gothenburg
 ### 2024-02-09
 
