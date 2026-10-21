@@ -25,7 +25,7 @@ module load bcftools/1.14
 
 ### Script:
 # Filepath
-KTDIR=/proj/snic2020-6-155
+KTDIR=/file/path
 
 # Index VCF
 bcftools sort -Ob $KTDIR/vcf/KT_LG${SLURM_ARRAY_TASK_ID}.vcf.gz | \
