@@ -26,7 +26,7 @@ module load bcftools/1.12
 
 ### The script:  
 # 1. Filepaths:
-KT_DIR=/proj/snic2020-6-155/James
+KT_DIR=/file/path
 KT_REF=$KT_DIR/ref_genome
 
 # 2. Create list of bams:
