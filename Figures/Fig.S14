@@ -1,0 +1,202 @@
+################ Figure S14 - predator density effects ###############################
+### Plot comparisons between crab densities with phenotypes and environmental
+### variables. This gives a rough visual indication of how predator densities relate to
+### the variables used in the Koster analysis.
+
+### James Reeve - DTU Aqua
+### 2025-12-29
+
+### Preparation
+rm(list = ls())
+try(dev.off())
+options(stringsAsFactors = FALSE)
+
+### Packages
+library(tidyverse)
+library(ggpubr)
+
+
+#### 1. Access the data ####
+
+### A: crab density counts
+crab <- read.csv("file/path/crabbing_trial_data_08-2020.csv")
+
+### B: phenotypes
+# Principal components
+PCs <- read.csv("file/path/Pheno_PC1-8.v3.csv")
+PCs$Site <- substr(PCs$X, 1, 5)
+
+# Shell length
+Diss <- read.csv("file/path/KT_ShellShaper_parameters.v2.csv")[, c("snailID", "shellLength")]
+Diss$snailID <- substr(Diss$snailID, 1, 6) # Drop '_ac' suffix
+Diss$Site <- substr(Diss$snailID, 1, 5)
+
+### C: environment
+Env.RS <- read.csv("file/path/Env_perSnail_RS_PC1-5.csv")
+Env.BS <- read.csv("file/path/Env_perSnail_BS_PC1-5.csv")
+Env.MSS <- read.csv("file/path/Env_perSnail_MSS_PC1-5.csv")
+
+Env.RS$Site <- substr(Env.RS$X, 1, 5)
+Env.BS$Site <- substr(Env.BS$X, 1, 5)
+Env.MSS$Site <- substr(Env.MSS$X, 1, 5)
+
+
+#### 2. Merge the datasets ####
+### Group crab counts by site
+tmp <- crab %>% group_by(Site) %>% 
+  summarise(Habitat_category, "N" = sum(N_small + N_large)) %>% 
+  unique()
+
+### Average phenotypic data and add to crab counts
+# Phenotypic PCs
+tmp2 <- PCs %>% group_by(Site) %>%
+  summarise("avgPC1" = mean(PC1),
+            "avgPC2" = mean(PC2),
+            "sePC1" = sd(PC1)/sqrt(n()),
+            "sePC2" = sd(PC2)/sqrt(n())) %>%
+  right_join(., tmp, by = join_by(Site)) %>%
+  filter(Site != "KT027") # Remove site missing snails
+
+# shell length
+Pheno <- Diss %>% group_by(Site) %>%
+  summarise("avg.shellLength" = mean(shellLength),
+            "se.shellLength" = sd(shellLength)/sqrt(n())) %>%
+  right_join(., tmp2, by = join_by(Site))
+
+rm(tmp2)
+
+
+### Average environmental dimensions and add to crab counts
+# Rocky shores
+Env.RS <- Env.RS %>% group_by(Site) %>%
+  summarise("Dim1" = mean(dim.1),
+            "Dim2" = mean(dim.2),
+            "Dim3" = mean(dim.3),
+            "se.Dim1" = sd(dim.1)/sqrt(n()),
+            "se.Dim2" = sd(dim.2)/sqrt(n()),
+            "se.Dim3" = sd(dim.3)/sqrt(n())) %>%
+  inner_join(., tmp, by = join_by(Site)) 
+
+# Boulder fields
+Env.BS <- Env.BS %>% group_by(Site) %>%
+  summarise("Dim1" = mean(dim.1),
+            "Dim2" = mean(dim.2),
+            "Dim3" = mean(dim.3),
+            "se.Dim1" = sd(dim.1)/sqrt(n()),
+            "se.Dim2" = sd(dim.2)/sqrt(n()),
+            "se.Dim3" = sd(dim.3)/sqrt(n())) %>%
+  inner_join(., tmp, by = join_by(Site)) 
+
+# Muddy-sandy shores
+Env.MSS <- Env.MSS %>% group_by(Site) %>%
+  summarise("Dim1" = mean(dim.1),
+            "Dim2" = mean(dim.2),
+            "Dim3" = mean(dim.3),
+            "se.Dim1" = sd(dim.1)/sqrt(n()),
+            "se.Dim2" = sd(dim.2)/sqrt(n()),
+            "se.Dim3" = sd(dim.3)/sqrt(n())) %>%
+  inner_join(., tmp, by = join_by(Site)) 
+
+
+#### 3. Plots ###
+# Set colour palette for crab density categories
+HabCat.cols <- c("#f1eef6", "#d0d1e6", "#a6bddb", "#74a9cf", "#2b8cbe", "#045a8d")
+
+### A) Plot crab counts per habitat category
+pS8A <- ggplot(tmp, aes(x = Habitat_category, y = N, group = Site))+
+  geom_linerange(aes(xmin = Habitat_category, xmax = Habitat_category, ymin = 0, ymax = N), 
+               colour = "grey", position = position_dodge(width = 0.3))+
+  geom_point(aes(fill = Habitat_category), 
+             pch = 21, colour = "grey", size = 4, position = position_dodge(width = 0.3),
+             show.legend = FALSE)+
+  labs(x = "", y = "Crab count")+
+  scale_fill_manual(values = HabCat.cols)+
+  theme_classic()
+# 800 x 200
+
+
+### B) plot phenotypes compared to crab counts
+pS8B.1 <- ggplot(Pheno, aes(x = N, colour = Habitat_category))+
+  geom_errorbar(aes(ymin = avgPC1 - sePC1, ymax = avgPC1 + sePC1), linewidth = 0.4, width = 0)+
+  geom_point(aes(y = avgPC1))+
+  labs(x = "", y = expression(PC1[Pheno]))+
+  scale_colour_manual(values = HabCat.cols)+
+  theme_classic()+
+  theme(axis.text.x = element_blank(),
+        legend.position = "none")
+
+pS8B.2 <- ggplot(Pheno, aes(x = N, colour = Habitat_category))+
+  geom_errorbar(aes(ymin = avgPC2 - sePC2, ymax = avgPC2 + sePC2), linewidth = 0.4, width = 0)+
+  geom_point(aes(y = avgPC2))+
+  labs(x = "", y = expression(PC2[Pheno]))+
+  scale_colour_manual(values = HabCat.cols)+
+  theme_classic()+
+  theme(axis.text.x = element_blank(),
+        legend.position = "none")
+
+pS8B.3 <- ggplot(Pheno, aes(x = N, colour = Habitat_category))+
+  geom_errorbar(aes(ymin = avg.shellLength - se.shellLength, 
+                    ymax = avg.shellLength + se.shellLength), linewidth = 0.4, width = 0)+
+  geom_point(aes(y = avg.shellLength))+
+  labs(x = "", y = "shellLength")+
+  scale_colour_manual(values = HabCat.cols)+
+  theme_classic()+
+  theme(legend.position = "none")
+
+pS8B <- annotate_figure(ggarrange(pS8B.1, pS8B.2, pS8B.3, ncol = 1),
+                bottom = text_grob("Crab count"))
+# 400 x 400
+
+
+### C) plot environmental dimensions compared to crab counts
+# Combine dataframes
+Env.RS$Hab <- "RS"
+Env.BS$Hab <- "BS"
+Env.MSS$Hab <- "MSS"
+Env <- rbind.data.frame(Env.RS, Env.BS, Env.MSS) 
+
+
+pS8C.1 <- ggplot(Env, aes(x = N, colour = Habitat_category))+
+  geom_errorbar(aes(ymin = Dim1 - se.Dim1, ymax = Dim1 + se.Dim1), linewidth = 0.4, width = 0)+
+  geom_point(aes(y = Dim1), size = 1)+
+  facet_wrap(facets = vars(Hab), nrow = 1)+
+  labs(x = "",)+
+  scale_colour_manual(values = HabCat.cols)+
+  theme_classic()+
+  theme(axis.text.x = element_blank(),
+        panel.border = element_rect(colour = "grey10", fill = NA),
+        strip.text = element_text(face = "bold"),
+        plot.margin = margin(0, 0, 0, 2, "pt"),
+        legend.position = "none")
+
+pS8C.2 <- ggplot(Env, aes(x = N, colour = Habitat_category))+
+  geom_errorbar(aes(ymin = Dim2 - se.Dim2, ymax = Dim2 + se.Dim2), linewidth = 0.4, width = 0)+
+  geom_point(aes(y = Dim2), size = 1)+
+  facet_wrap(facets = vars(Hab), nrow = 1)+
+  labs(x = "",)+
+  scale_colour_manual(values = HabCat.cols)+
+  theme_classic()+
+  theme(axis.text.x = element_blank(),
+        panel.border = element_rect(colour = "grey10", fill = NA),
+        strip.background = element_blank(),
+        strip.text = element_blank(),
+        plot.margin = margin(0, 0, 0, 2, "pt"),
+        legend.position = "none")
+
+pS8C.3 <- ggplot(Env, aes(x = N, colour = Habitat_category))+
+  geom_errorbar(aes(ymin = Dim3 - se.Dim3, ymax = Dim3 + se.Dim3), linewidth = 0.4, width = 0)+
+  geom_point(aes(y = Dim3), size = 1)+
+  facet_wrap(facets = vars(Hab), nrow = 1)+
+  labs(x = "")+
+  scale_colour_manual(values = HabCat.cols)+
+  theme_classic()+
+  theme(panel.border = element_rect(colour = "grey10", fill = NA),
+        strip.background = element_blank(),
+        strip.text = element_blank(),
+        plot.margin = margin(0, 0, 0, 2, "pt"),
+        legend.position = "none")
+
+pS8C <- annotate_figure(ggarrange(pS8C.1, pS8C.2, pS8C.3, ncol = 1,
+                                  heights = c(0.9, 1, 0.9)),
+                bottom = "Crab count")
+# 300 x 400
