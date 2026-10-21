@@ -1,6 +1,7 @@
 ################### Figure S8 - Posterior distributions Pheno~Inv ####################
 ### Plot posterior distributions from brms model objects for the Pheno~Inv models. Tile
-### plots are copies from Fig. 5 in the main text.
+### plots are copies from Fig. 5 in the main text. Among habitat models were used in
+### Fig. S8B. Other posterior distributions are in Fig. S10.
 
 ### James Reeve - University of Gothenburg
 ### 2024-02-07
