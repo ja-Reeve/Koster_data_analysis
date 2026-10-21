@@ -7,6 +7,7 @@
 ###       4. Outlier SNPs outside inversions from CZ-cline analysis [Westram et al. 2018, Evolution Letters]
 ###       5. Koster WGS genetic background markers [James Reeve 2021]
 ### The selection process for each type of marker will be discussed below
+### Note: the oulter SNPs were not included in the final analysis.
 
 ### James Reeve - University of Gothenburg
 ### 14/12/2021
@@ -24,7 +25,7 @@ Invs <- unique(read.csv("/input/dir/Inversion_positions_on_old_map.csv", header 
 PATH <- "/input/dir/"
 
 ### Add linkage group information
-LMap <- read.table("/Users/james/Documents/Inversion_detection/map_v11.txt", header = TRUE)
+LMap <- read.table("/path/to/linkage_map/map_v11.txt", header = TRUE)
 LMap$LG <-  paste0("LG", LMap$LG)
 
 ### 1. Inversion markers (Koster WGS) ####
