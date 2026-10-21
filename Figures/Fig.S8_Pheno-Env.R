@@ -28,7 +28,7 @@ Habs <- c("rock", "boulder", "mud-sand", "hab.only")
 PATH <- "file/path/"
 
 
-#### 1. Posterior distribution plots ####
+#### A: Posterior distribution plots ####
 ### Rocky shores
 pSexRS <- annotate_figure(
   ggarrange(
@@ -119,7 +119,7 @@ mcmc_plot(mod, type = "areas", pars = c("adultjuvenile", "sexM"))+
         axis.text.y = element_blank())
 
 
-#### 2. Tile plot ####
+#### B: Tile plot ####
 
 brs <- read.csv("file/path/brms_result_summary_v3.2.csv")
 # Subset to Pheno~Env results
