@@ -11,6 +11,10 @@
 ### James Reeve - Göteborgs Universitet
 ### 09/08/2021
 
+### Update 21/10/2026: a better reference genome for Littorina saxatilis has been published
+### this should be used in-place of the old version used in this study.
+### De Jode et al. 2024 (https://doi.org/10.1093/gbe/evae076)
+
 ### Job parameters
 #SBATCH -A snic2021-5-142
 #SBATCH -p core
@@ -27,7 +31,7 @@ module load bwa/0.7.17
 
 ### The script:  
 # 1. Filepaths:
-KT_DIR=/proj/snic2020-6-155
+KT_DIR=/file/path
 
 # 2. Index reference genome:
 # Note: this line only needs to be run once!
