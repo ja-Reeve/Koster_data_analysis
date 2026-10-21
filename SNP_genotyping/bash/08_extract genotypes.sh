@@ -21,11 +21,11 @@ module load bioinfo-tools
 module load bcftools/1.14
 
 ### VCF directory path
-VCF=/proj/snic2020-6-155/vcf
+VCF=/file/path
 
 ### List of linkage groups
 LG=`echo "LG"$SLURM_ARRAY_TASK_ID`
 
 ### Extract SNPs from BGI data
 bcftools query -f '%CHROM %POS [ %GT]\n' $VCF/KT_${LG}_filtered_MAF003.vcf.gz \
-        > /proj/snic2020-6-155/genotypes/KT_${LG}_genotypes_BGI.txt
+        > /file/path/genotypes/KT_${LG}_genotypes_BGI.txt
