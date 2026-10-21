@@ -20,7 +20,7 @@
 
 ### The script
 # 1. Filepaths:
-KT_DIR=/proj/snic2020-6-155
+KT_DIR=/file/path
 
 # 2. Create list of samples:
 basename -a $KT_DIR/fastq/KT* > $KT_DIR/snailIDs.txt
