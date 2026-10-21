@@ -1,0 +1,109 @@
+############# Dip test phenotypes and environmental variables ################
+### Investigating the distribution of phenotypic and envrionmental varaible 
+### after dimension reduction (PCA and PCAmix) to look for multimodality.
+### Bimodal distributions could be a weak indicator of ecotypes separating 
+### along a phenotypic continumm.
+
+### James Reeve - DTU Aqua
+### 12/06/2026
+
+### Preparation ####
+rm(list = ls())
+try(dev.off())
+options(stringsAsFactors = FALSE)
+if(Sys.info()['sysname'] == "Windows") {
+  setwd("C:/Users/James/Documents") # Note: "~" defaults to "C:/Users/James/Documents"
+} else {
+  setwd("/Users/james")
+}
+
+### Packages
+library(tidyverse)
+library(moments) # to calcaulte skewness and kurtosis
+library(diptest) # Runs Hartigan's dip test for unimodality
+
+##### 1. Access data ####
+PATH <- "/file/path/"
+
+### Phenotypic PCs
+Pheno <- read.csv(paste0(PATH, "principal_components/Pheno_PC1-8.v3.csv"))
+
+### Environmental dimensions
+Env_RS <- read.csv(paste0(PATH, "principal_components/Env_RS_PC1-5.csv"))
+Env_BS <- read.csv(paste0(PATH, "principal_components/Env_BS_PC1-5.csv"))
+Env_MSS <- read.csv(paste0(PATH, "principal_components/Env_MSS_PC1-5.csv"))
+
+
+#### 2. Measure skewness and kurtosis ####
+### A: skewness
+## Phenotype
+skewness(Pheno$PC1)
+skewness(Pheno$PC2)
+
+## Environment
+# Rocky shores
+skewness(Env_RS$dim.1)
+skewness(Env_RS$dim.2)
+skewness(Env_RS$dim.3)
+
+# Boulder fields
+skewness(Env_BS$dim.1)
+skewness(Env_BS$dim.2)
+skewness(Env_BS$dim.3)
+
+# Muddy-sandy shores
+skewness(Env_MSS$dim.1)
+skewness(Env_MSS$dim.2)
+skewness(Env_MSS$dim.3)
+
+
+### B: kurtosis
+### (0 wider tails than normal distribution; < 0  narrower tails)
+## Phenotype
+kurtosis(Pheno$PC1)
+kurtosis(Pheno$PC2)
+
+## Environment
+# Rocky shores
+kurtosis(Env_RS$dim.1)
+kurtosis(Env_RS$dim.2)
+kurtosis(Env_RS$dim.3)
+
+# Boulder fields
+kurtosis(Env_BS$dim.1)
+kurtosis(Env_BS$dim.2)
+kurtosis(Env_BS$dim.3)
+
+# Muddy-sandy shores
+kurtosis(Env_MSS$dim.1)
+kurtosis(Env_MSS$dim.2)
+kurtosis(Env_MSS$dim.3)
+
+
+#### 3. Hartigan's dip test ####
+### Testing for unimodality of a dataset. Non-significance indicates a uniform distribution
+## Phenotypes
+dip.test(Pheno$PC1)
+dip.test(Pheno$PC2)
+dip.test(Pheno$PC3)
+dip.test(Pheno$PC4)
+dip.test(Pheno$PC5)
+dip.test(Pheno$PC6)
+dip.test(Pheno$PC7)
+dip.test(Pheno$PC8)
+
+## Environment
+# Rocky shores
+dip.test(Env_RS$dim.1)
+dip.test(Env_RS$dim.2)
+dip.test(Env_RS$dim.3)
+
+# Boulder fields
+dip.test(Env_BS$dim.1)
+dip.test(Env_BS$dim.2)
+dip.test(Env_BS$dim.3)
+
+# Muddy-sandy shores
+dip.test(Env_MSS$dim.1)
+dip.test(Env_MSS$dim.2)
+dip.test(Env_MSS$dim.3)
